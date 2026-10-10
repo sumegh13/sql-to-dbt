@@ -8,6 +8,40 @@
  "status": "needs_human",
  "reason_category": "dynamic_sql",
  "reason": "Builds SQL at runtime; the real query shape is only known by executing it. Needs a human to pin down the intended static SQL.",
- "attempts": 0,
- "history": []
+ "attempts": 1,
+ "history": [
+  {
+   "attempt": 1,
+   "sql": "SELECT\n    c.customer_id,\n    c.customer_name,\n    c.region,\n    c.signup_date,\n    c.email,\n    c.is_active,\n    c.legacy_code,\n    c.tags\nFROM {{ source('legacy', 'customers') }} AS c\nWHERE c.email IS NOT NULL",
+   "status": "match",
+   "detail": {
+    "datasets": {
+     "base": 10,
+     "seed_101": 10,
+     "seed_202": 10,
+     "edge": 6
+    }
+   }
+  }
+ ],
+ "model_sql": "SELECT\n    c.customer_id,\n    c.customer_name,\n    c.region,\n    c.signup_date,\n    c.email,\n    c.is_active,\n    c.legacy_code,\n    c.tags\nFROM {{ source('legacy', 'customers') }} AS c\nWHERE c.email IS NOT NULL",
+ "proposal": {
+  "model_sql": "SELECT\n    c.customer_id,\n    c.customer_name,\n    c.region,\n    c.signup_date,\n    c.email,\n    c.is_active,\n    c.legacy_code,\n    c.tags\nFROM {{ source('legacy', 'customers') }} AS c\nWHERE c.email IS NOT NULL",
+  "assumptions": "- The report_config row currently reads ('customers', 'email'), and that is the only row. The model hardcodes this pair because a dbt model cannot build table or column names at runtime.\n- \"IS NOT NULL\" is the only filter applied. Empty strings are kept, which matches T-SQL behaviour here.\n- SELECT TOP 1 with no ORDER BY is harmless because report_config has a single row.\n- The procedure's output columns are exactly the customers columns in their declared order, so the model lists them explicitly rather than using SELECT *.\n- dbo.customer_staging is not read by the procedure, so its contents do not affect the output.\n- Column types carry over from the source through SELECT * INTO, and the model keeps the same types.",
+  "questions": "- Is the intended report fixed to customers filtered by email, or should the config row be treated as a live input? If it is live, the procedure cannot be reproduced as a static model and the intended query shape must be specified.\n- If report_config ever changes, should this model be rewritten to match, or should the procedure be retired?\n- Should rows where email is an empty or whitespace-only string also be excluded? The procedure does not exclude them.\n- Is the output table expected to be overwritten on each run (as the procedure does), or should history be kept?",
+  "not_migrated": "- The procedure drops and recreates dbo.dynamic_sql_report on every run. The dbt model does not write a table itself; materialisation is handled by dbt config.\n- Dynamic SQL: the table name, filter column, and their quoting are resolved from report_config at execution time. This is replaced by a hardcoded customers/email filter, so changes to report_config have no effect on the model.\n- The procedure's SET NOCOUNT ON has no equivalent in the model.",
+  "verification": "output rows match on 4 datasets"
+ },
+ "explanation": "The procedure reads a configuration table to find which table to report on and which column to filter by. At present that config points to the customers table, filtered on email. The procedure copies every customer row where the email is present into a report table, replacing the previous run's output. This model reproduces that output for the current configuration by selecting the customers columns where email is not null.",
+ "llm_calls": [
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 1986,
+   "output_tokens": 1274,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.000836
+  }
+ ],
+ "cost_usd": 0.000836
 }

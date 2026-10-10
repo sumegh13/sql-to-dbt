@@ -8,6 +8,40 @@
  "status": "needs_human",
  "reason_category": "mutates_source",
  "reason": "Modifies existing tables in place (dbo.customers, dbo.orders); a dbt model can only build new relations, so this needs a design decision (incremental/snapshot/ops job).",
- "attempts": 0,
- "history": []
+ "attempts": 1,
+ "history": [
+  {
+   "attempt": 1,
+   "sql": "select\n    order_id,\n    customer_id,\n    order_date,\n    amount,\n    status\nfrom {{ source('legacy', 'orders') }}\nwhere rtrim(lower(status)) = 'cancelled'\n  and order_date < DATE '2025-10-01'",
+   "status": "match",
+   "detail": {
+    "datasets": {
+     "base": 2,
+     "seed_101": 0,
+     "seed_202": 2,
+     "edge": 1
+    }
+   }
+  }
+ ],
+ "model_sql": "select\n    order_id,\n    customer_id,\n    order_date,\n    amount,\n    status\nfrom {{ source('legacy', 'orders') }}\nwhere rtrim(lower(status)) = 'cancelled'\n  and order_date < DATE '2025-10-01'",
+ "proposal": {
+  "model_sql": "select\n    order_id,\n    customer_id,\n    order_date,\n    amount,\n    status\nfrom {{ source('legacy', 'orders') }}\nwhere rtrim(lower(status)) = 'cancelled'\n  and order_date < DATE '2025-10-01'",
+  "assumptions": "- The output table is the archive, so the model reproduces only `dbo.archive_and_purge`. The DELETE and UPDATE side effects are not part of the model.\n- T-SQL's default case-insensitive collation is emulated with `lower()`, so 'Cancelled' and 'CANCELLED' match. T-SQL also ignores trailing spaces in equality, which `rtrim()` emulates. The source collation is assumed to be accent-sensitive (the usual `_CI_AS` default), so no accent folding is applied.\n- `order_date` is a DATE column, so comparing it to `DATE '2025-10-01'` matches the T-SQL string-literal comparison.\n- The source `dbo.orders` still contains the cancelled rows when the model runs. The model is only correct if it runs before the procedure's DELETE has taken effect.\n- Duplicate rows are preserved (no DISTINCT), matching SELECT * INTO.\n- NULL status values are excluded, as they are in T-SQL, because NULL = 'cancelled' is not true.",
+  "questions": "- Ordering: does the dbt model run before the purge? Once the procedure's DELETE has run, `dbo.orders` no longer holds these rows, so a dbt model reading it afterward would return zero rows. Which system is the source of truth, and what is the run order?\n- Should the archive be append-only (incremental, with a unique key on order_id) or rebuilt each run? If it is rebuilt from orders, the archive is lost once the source rows are purged.\n- Should the purge (DELETE from orders) be kept in the warehouse, or moved to an ops job outside dbt? dbt models cannot delete rows from a source table.\n- Should the customer deactivation (UPDATE customers SET is_active = 0 for customers with no orders) be modeled as a snapshot or a separate model? Note that it depends on orders after the purge, so its result differs depending on run order.\n- Are status values with leading spaces, or other variants such as 'canceled' (US spelling), expected to match? The current logic matches only 'cancelled' with trailing spaces trimmed.\n- Is the 2025-10-01 cutoff meant to stay hard-coded, or should it become a dbt variable?",
+  "not_migrated": "- DELETE FROM dbo.orders for the archived order_ids. A dbt model cannot modify a source table.\n- UPDATE dbo.customers SET is_active = 0 for customers with no rows in orders. This is an in-place mutation of a source table and is not reproduced.\n- The DROP TABLE / recreate of dbo.archive_and_purge. The model is a SELECT; materialization (table, incremental, or otherwise) is left to dbt config and the design decision noted in the questions.\n- The SET NOCOUNT ON and procedure wrapper have no equivalent in the model.",
+  "verification": "output rows match on 4 datasets"
+ },
+ "explanation": "This procedure copies every cancelled order dated before 1 October 2025 into a separate archive table, then deletes those orders from the live orders table. It also marks as inactive any customer who has no remaining orders. The model below reproduces only the archive table: the cancelled, pre-October orders as they existed before the purge.",
+ "llm_calls": [
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 1958,
+   "output_tokens": 1899,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.001145
+  }
+ ],
+ "cost_usd": 0.001145
 }

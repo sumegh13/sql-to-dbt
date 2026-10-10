@@ -71,12 +71,27 @@ def _feedback(history):
             "Find the semantic difference and fix it.\n\n" + "\n\n".join(parts))
 
 
-def _claude(proc_sql, schema, output_columns, history):
+def _blocker_text(blocker, small_tables):
+    category, reason = blocker
+    shape = (" Its output cannot be compared row by row, so it will only be checked for identical column names and row count."
+             " Make your model deterministic and state how in your assumptions." if category == "nondeterministic" else
+             " Its output table will still be compared row by row against the procedure, so reproduce the output table exactly.")
+    data = "".join(f"\nCurrent contents of {t} (columns: {', '.join(c)}): {rows}" for t, (c, rows) in small_tables.items())
+    return (f"\n\nThis procedure was flagged for human review ({category}): {reason}{shape}{data}\n\n"
+            "Still write the best dbt model you can. After the <sql> block, also output:\n"
+            "<assumptions>bullet list of assumptions your model relies on</assumptions>\n"
+            "<questions>bullet list of questions a reviewer must answer before this ships</questions>\n"
+            "<not_migrated>procedure behaviour your model does not reproduce (side effects, writes to other tables), or 'none'</not_migrated>")
+
+
+def _claude(proc_sql, schema, output_columns, history, blocker=None, small_tables=None):
     import anthropic
     client = anthropic.Anthropic()
     prompt = (f"Source tables (SQL Server types):\n{_schema_text(schema)}\n\n"
               f"Output columns, in order: {', '.join(output_columns)}\n\n"
               f"Procedure:\n<tsql>\n{proc_sql}\n</tsql>")
+    if blocker:
+        prompt += _blocker_text(blocker, small_tables or {})
     if history:
         prompt += _feedback(history)
     resp = client.messages.create(
@@ -100,13 +115,17 @@ def _claude(proc_sql, schema, output_columns, history):
     sql = sql.group(1) if sql else None
     if sql:
         sql = re.sub(r"^```\w*\s*|\s*```$", "", sql).strip().rstrip(";")
+    tag = lambda name: (m.group(1).strip() if (m := re.search(rf"<{name}>\s*(.*?)\s*</{name}>", text, re.S)) else None)
     return {"sql": sql, "explanation": expl.group(1) if expl else None, "usage": usage,
+            "assumptions": tag("assumptions"), "questions": tag("questions"), "not_migrated": tag("not_migrated"),
             "error": None if sql else f"no <sql> block in response (stop_reason={resp.stop_reason})"}
 
 
-def translate(proc_dir: Path, proc_sql: str, schema: dict, output_columns: list[str], history: list[dict]) -> dict:
-    """Returns {"sql": str|None, "explanation": str|None, "usage": dict|None, "error": str|None}."""
+def translate(proc_dir: Path, proc_sql: str, schema: dict, output_columns: list[str], history: list[dict],
+              blocker: tuple[str, str] | None = None, small_tables: dict | None = None) -> dict:
+    """Returns {"sql", "explanation", "usage", "error"} (+ "assumptions", "questions", "not_migrated" when blocker is set).
+    blocker = (category, reason) from triage: ask for a proposal for human review instead of a plain translation."""
     if MODE == "reference":
         f = proc_dir / "reference_model.sql"
         return {"sql": f.read_text() if f.exists() else None, "explanation": None, "usage": None, "error": None}
-    return _claude(proc_sql, schema, output_columns, history)
+    return _claude(proc_sql, schema, output_columns, history, blocker, small_tables)

@@ -8,6 +8,40 @@
  "status": "needs_human",
  "reason_category": "nondeterministic",
  "reason": "Output depends on time/randomness, so old-vs-new equivalence can't be proven row by row.",
- "attempts": 0,
- "history": []
+ "attempts": 1,
+ "history": [
+  {
+   "attempt": 1,
+   "sql": "with ranked as (\n    select\n        customer_id,\n        customer_name,\n        row_number() over (order by customer_id) as rn\n    from {{ source('legacy', 'customers') }}\n)\nselect\n    customer_id,\n    customer_name,\n    md5(cast(customer_id as varchar)) as audit_token,\n    timestamp '1970-01-01 00:00:00' as sampled_at\nfrom ranked\nwhere rn <= 5",
+   "status": "match",
+   "detail": {
+    "datasets": {
+     "base": 5,
+     "seed_101": 5,
+     "seed_202": 5,
+     "edge": 5
+    }
+   }
+  }
+ ],
+ "model_sql": "with ranked as (\n    select\n        customer_id,\n        customer_name,\n        row_number() over (order by customer_id) as rn\n    from {{ source('legacy', 'customers') }}\n)\nselect\n    customer_id,\n    customer_name,\n    md5(cast(customer_id as varchar)) as audit_token,\n    timestamp '1970-01-01 00:00:00' as sampled_at\nfrom ranked\nwhere rn <= 5",
+ "proposal": {
+  "model_sql": "with ranked as (\n    select\n        customer_id,\n        customer_name,\n        row_number() over (order by customer_id) as rn\n    from {{ source('legacy', 'customers') }}\n)\nselect\n    customer_id,\n    customer_name,\n    md5(cast(customer_id as varchar)) as audit_token,\n    timestamp '1970-01-01 00:00:00' as sampled_at\nfrom ranked\nwhere rn <= 5",
+  "assumptions": "- Determinism: the five rows are the five customers with the lowest customer_id. This replaces the original ORDER BY NEWID(), so the same rows come back on every run. This is a fixed selection, not a random sample.\n- audit_token: md5 of the customer_id is a stable stand-in for NEWID(). It is a 32-character hex string, not a 36-character uniqueidentifier, so the type differs from the original.\n- sampled_at: a fixed placeholder timestamp replaces GETDATE(). The model has no run-time variable because Jinja beyond source() is not allowed.\n- customer_id is unique in dbo.customers. If it is not, the row_number tie-break is arbitrary and should be made deterministic on a unique key.\n- The source has at least five customers, so the output has five rows. With fewer, it returns all of them, as TOP 5 would.\n- Column names and order match the required output: customer_id, customer_name, audit_token, sampled_at.",
+  "questions": "- Is a fixed selection (lowest five customer_id values) acceptable for an audit sample, or do auditors need a sample that changes between runs?\n- Should audit_token keep the uniqueidentifier format? If so, a deterministic GUID-shaped value (for example, built from md5 and formatted with dashes) would be needed.\n- Should sampled_at be the actual run time? That would make the model nondeterministic and would need a run-date variable, which the rules do not allow here.\n- Is customer_id unique in dbo.customers? If not, which column breaks ties?\n- Is the row count guaranteed to be five in production, or should the model handle smaller tables differently?\n- Does any downstream consumer rely on the table being a physical copy that is rebuilt each run?",
+  "not_migrated": "- The DROP TABLE and SELECT INTO side effects are not reproduced. The model is a SELECT only, and dbt handles materialization. The table is rebuilt by dbt, not by the procedure.\n- SET NOCOUNT ON has no equivalent and is not needed.\n- The random selection (ORDER BY NEWID()) is not reproduced; it is replaced by a fixed choice, as described in the assumptions.\n- GETDATE() and NEWID() are not reproduced. Their values are replaced by a fixed timestamp and an md5 hash.",
+  "verification": "shape only (columns + row count) on 4 datasets"
+ },
+ "explanation": "The procedure drops and rebuilds dbo.random_audit_sample with five customers chosen at random from dbo.customers, each tagged with a random GUID and the current time. It is a quality-control sample meant for auditors to review, so each run gives a different set of customers. This model keeps the same shape (five customers, same columns) but makes the choice fixed so the output can be reproduced.",
+ "llm_calls": [
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 1877,
+   "output_tokens": 1956,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.001166
+  }
+ ],
+ "cost_usd": 0.001166
 }

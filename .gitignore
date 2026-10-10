@@ -1,6 +1,8 @@
 .env
 .venv/
 __pycache__/
+*.pyc
 dbt_project/target/
 dbt_project/logs/
-results/
+dbt_project/models/*
+!dbt_project/models/.gitkeep

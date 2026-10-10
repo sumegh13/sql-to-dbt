@@ -42,6 +42,8 @@ const CAT={dynamic_sql:'Dynamic SQL',nondeterministic:'Nondeterministic',mutates
 function row(r){const v=r.status=='verified';return `<details><summary><span class="pill ${v?'v':'h'}">${v?'verified':CAT[r.reason_category]||'needs human'}</span><b>${esc(r.name)}</b><span class=sp></span>${r.tags.map(t=>`<span class=tag>${esc(t)}</span>`).join('')}<span class=mut>${esc(r.difficulty)}${v?' · '+Object.keys(r.datasets||{}).length+' datasets · '+r.rows+' rows · '+r.attempts+' attempt'+(r.attempts>1?'s':''):''}</span></summary><div class=body>
 ${r.explanation?`<div style="grid-column:1/-1"><h4>What it does</h4><p style="margin:4px 0">${esc(r.explanation)}</p></div>`:''}
 ${v?'':`<div style="grid-column:1/-1"><b>Why:</b> ${esc(r.reason)}</div>`}
+${r.proposal?`<div style="grid-column:1/-1"><h4>Agent proposal for review</h4><p style="margin:4px 0"><span class="pill ${r.proposal.verification.startsWith('not')?'h':'v'}">${esc(r.proposal.verification)}</span></p>
+${['assumptions','questions','not_migrated'].filter(k=>r.proposal[k]).map(k=>`<h4>${{assumptions:'Assumptions',questions:'Questions for the reviewer',not_migrated:'Not migrated'}[k]}</h4><pre style="white-space:pre-wrap">${esc(r.proposal[k])}</pre>`).join('')}</div>`:''}
 ${r.history&&r.history.length>1?`<div style="grid-column:1/-1"><h4>Attempt history</h4>${r.history.map(h=>`<p class=mut style="margin:2px 0">#${h.attempt} ${esc(h.status)}${h.status=='match'?'':': '+esc(typeof h.detail=='string'?h.detail.slice(0,240):JSON.stringify(h.detail.issues).slice(0,240))}</p>`).join('')}</div>`:''}
 <div><h4>Legacy T-SQL</h4><pre>${esc(r.legacy_sql)}</pre></div><div><h4>dbt model</h4><pre>${r.model_sql?esc(r.model_sql):'(none: not auto-migratable)'}</pre></div></div></details>`}
 function draw(){const list=R.filter(r=>f=='all'||(f=='verified'?r.status=='verified':f=='human'?r.status!='verified':r.difficulty==f));
@@ -50,7 +52,7 @@ document.getElementById('app').innerHTML=`<h1><b>${ok.length} of ${R.length}</b>
 <div class=bar><i style="width:${pct(ok.length)};background:var(--ok)"></i><i style="width:${pct(hu.length)};background:var(--warn)"></i></div>
 <div class=legend><span>Verified ${ok.length}</span><span>Needs human ${hu.length}</span></div>
 <div class=stats><div class=stat><b>${ok.reduce((a,r)=>a+r.rows,0)}</b><span>rows compared</span></div><div class=stat><b>${ok.filter(r=>r.attempts==1).length}</b><span>passed first try</span></div><div class=stat><b>${ok.filter(r=>r.attempts>1).length}</b><span>fixed by retry</span></div><div class=stat><b>$${R.reduce((a,r)=>a+(r.cost_usd||0),0).toFixed(3)}</b><span>LLM cost, full run</span></div></div>
-<div class=human><h2>Needs a human (${hu.length})</h2>${hu.map(r=>`<p><b>${esc(r.name)}</b>: ${esc(r.reason)}</p>`).join('')}</div>
+<div class=human><h2>Needs a human (${hu.length})</h2>${hu.map(r=>`<p><b>${esc(r.name)}</b>: ${esc(r.reason)}${r.proposal?` <span class=mut>Proposal ready: ${esc(r.proposal.verification)}.</span>`:''}</p>`).join('')}</div>
 <div class=filters>${['all','verified','human',...diffs.slice(0,3)].map(x=>`<button class="${f==x?'on':''}" onclick="f='${x}';draw()">${x}</button>`).join('')}</div>${list.map(row).join('')}`}
 draw();</script></html>"""
 Path("dashboard.html").write_text(HTML.replace("%DATA%", data))
