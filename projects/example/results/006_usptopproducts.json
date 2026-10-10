@@ -1,0 +1,42 @@
+{
+ "id": 6,
+ "slug": "usptopproducts",
+ "difficulty": "unknown",
+ "tags": [],
+ "status": "verified",
+ "attempts": 1,
+ "rows": 32,
+ "datasets": {
+  "base": 8,
+  "seed_101": 8,
+  "seed_202": 8,
+  "edge": 8
+ },
+ "param_sets": 4,
+ "model_sql": "WITH sales AS (\n    SELECT\n        p.ProductID,\n        p.ProductName,\n        p.Category,\n        SUM(l.Quantity) AS UnitsSold\n    FROM {{ source('legacy', 'Products') }} p\n    JOIN {{ source('legacy', 'Sales_OrderLines') }} l\n        ON l.ProductID = p.ProductID\n    GROUP BY p.ProductID, p.ProductName, p.Category\n),\nranked AS (\n    SELECT\n        ProductID,\n        ProductName,\n        Category,\n        UnitsSold,\n        lower(rtrim(Category)) AS category_key,\n        ROW_NUMBER() OVER (ORDER BY UnitsSold DESC, ProductID) AS rank_all,\n        ROW_NUMBER() OVER (PARTITION BY lower(rtrim(Category)) ORDER BY UnitsSold DESC, ProductID) AS rank_in_category\n    FROM sales\n)\nSELECT\n    ProductID,\n    ProductName,\n    Category,\n    UnitsSold,\n    category_key,\n    rank_all,\n    rank_in_category\nFROM ranked",
+ "param_filter": "(@Category IS NULL AND rank_all <= @TopN) OR (@Category IS NOT NULL AND category_key = lower(rtrim(@Category)) AND rank_in_category <= @TopN)",
+ "history": [
+  {
+   "attempt": 1,
+   "sql": "WITH sales AS (\n    SELECT\n        p.ProductID,\n        p.ProductName,\n        p.Category,\n        SUM(l.Quantity) AS UnitsSold\n    FROM {{ source('legacy', 'Products') }} p\n    JOIN {{ source('legacy', 'Sales_OrderLines') }} l\n        ON l.ProductID = p.ProductID\n    GROUP BY p.ProductID, p.ProductName, p.Category\n),\nranked AS (\n    SELECT\n        ProductID,\n        ProductName,\n        Category,\n        UnitsSold,\n        lower(rtrim(Category)) AS category_key,\n        ROW_NUMBER() OVER (ORDER BY UnitsSold DESC, ProductID) AS rank_all,\n        ROW_NUMBER() OVER (PARTITION BY lower(rtrim(Category)) ORDER BY UnitsSold DESC, ProductID) AS rank_in_category\n    FROM sales\n)\nSELECT\n    ProductID,\n    ProductName,\n    Category,\n    UnitsSold,\n    category_key,\n    rank_all,\n    rank_in_category\nFROM ranked",
+   "param_filter": "(@Category IS NULL AND rank_all <= @TopN) OR (@Category IS NOT NULL AND category_key = lower(rtrim(@Category)) AND rank_in_category <= @TopN)",
+   "status": "match",
+   "detail": {
+    "runs": 16,
+    "rows": 32
+   }
+  }
+ ],
+ "explanation": "This procedure returns the top N products by total units sold, based on order lines, and can optionally be limited to one product category. Products are ranked by units sold (ties broken by ProductID), and only the first N rows are returned. When a category is supplied, the ranking is done within that category only.",
+ "llm_calls": [
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 1839,
+   "output_tokens": 2162,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.001265
+  }
+ ],
+ "cost_usd": 0.001265
+}

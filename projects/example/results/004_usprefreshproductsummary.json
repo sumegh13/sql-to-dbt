@@ -1,0 +1,42 @@
+{
+ "id": 4,
+ "slug": "usprefreshproductsummary",
+ "difficulty": "unknown",
+ "tags": [],
+ "status": "verified",
+ "attempts": 1,
+ "rows": 114,
+ "datasets": {
+  "base": 25,
+  "seed_101": 35,
+  "seed_202": 39,
+  "edge": 15
+ },
+ "param_sets": 1,
+ "model_sql": "SELECT\n    p.ProductID,\n    p.ProductName,\n    CAST(COALESCE(SUM(l.Quantity), 0) AS INTEGER) AS UnitsSold,\n    CAST(COALESCE(SUM(l.Quantity * l.UnitPrice), 0) AS DECIMAL(14,2)) AS Revenue\nFROM {{ source('legacy', 'Products') }} p\nLEFT JOIN {{ source('legacy', 'Sales_OrderLines') }} l\n    ON l.ProductID = p.ProductID\nGROUP BY p.ProductID, p.ProductName",
+ "param_filter": null,
+ "history": [
+  {
+   "attempt": 1,
+   "sql": "SELECT\n    p.ProductID,\n    p.ProductName,\n    CAST(COALESCE(SUM(l.Quantity), 0) AS INTEGER) AS UnitsSold,\n    CAST(COALESCE(SUM(l.Quantity * l.UnitPrice), 0) AS DECIMAL(14,2)) AS Revenue\nFROM {{ source('legacy', 'Products') }} p\nLEFT JOIN {{ source('legacy', 'Sales_OrderLines') }} l\n    ON l.ProductID = p.ProductID\nGROUP BY p.ProductID, p.ProductName",
+   "param_filter": null,
+   "status": "match",
+   "detail": {
+    "runs": 4,
+    "rows": 114
+   }
+  }
+ ],
+ "explanation": "This procedure rebuilds a product sales summary table from scratch. For every product, it totals the units sold and the revenue (quantity times unit price) across all order lines, and it reports zero for products with no sales. The model below gives that same per-product result as a single query, with no parameters.",
+ "llm_calls": [
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 1808,
+   "output_tokens": 1556,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.000959
+  }
+ ],
+ "cost_usd": 0.000959
+}

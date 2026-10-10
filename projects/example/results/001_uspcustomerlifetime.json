@@ -1,0 +1,42 @@
+{
+ "id": 1,
+ "slug": "uspcustomerlifetime",
+ "difficulty": "unknown",
+ "tags": [],
+ "status": "verified",
+ "attempts": 1,
+ "rows": 112,
+ "datasets": {
+  "base": 29,
+  "seed_101": 31,
+  "seed_202": 37,
+  "edge": 15
+ },
+ "param_sets": 1,
+ "model_sql": "WITH spend AS (\n    SELECT\n        o.CustomerID,\n        MIN(o.OrderDate) AS FirstOrder,\n        MAX(o.OrderDate) AS LastOrder,\n        CAST(SUM(l.Quantity * l.UnitPrice) AS DECIMAL(14,2)) AS Revenue\n    FROM {{ source('legacy', 'Sales_Orders') }} o\n    JOIN {{ source('legacy', 'Sales_OrderLines') }} l\n        ON l.OrderID = o.OrderID\n    WHERE rtrim(lower(o.Status)) IN ('shipped', 'closed')\n    GROUP BY o.CustomerID\n)\nSELECT\n    c.CustomerID,\n    c.CustomerName,\n    COALESCE(s.Revenue, 0) AS Revenue,\n    date_diff('month', s.FirstOrder, s.LastOrder) AS TenureMonths,\n    CASE\n        WHEN s.Revenue IS NULL THEN 'none'\n        WHEN s.Revenue >= 2000 THEN 'high'\n        WHEN s.Revenue >= 500 THEN 'mid'\n        ELSE 'low'\n    END AS Segment\nFROM {{ source('legacy', 'Customers') }} c\nLEFT JOIN spend s\n    ON s.CustomerID = c.CustomerID",
+ "param_filter": null,
+ "history": [
+  {
+   "attempt": 1,
+   "sql": "WITH spend AS (\n    SELECT\n        o.CustomerID,\n        MIN(o.OrderDate) AS FirstOrder,\n        MAX(o.OrderDate) AS LastOrder,\n        CAST(SUM(l.Quantity * l.UnitPrice) AS DECIMAL(14,2)) AS Revenue\n    FROM {{ source('legacy', 'Sales_Orders') }} o\n    JOIN {{ source('legacy', 'Sales_OrderLines') }} l\n        ON l.OrderID = o.OrderID\n    WHERE rtrim(lower(o.Status)) IN ('shipped', 'closed')\n    GROUP BY o.CustomerID\n)\nSELECT\n    c.CustomerID,\n    c.CustomerName,\n    COALESCE(s.Revenue, 0) AS Revenue,\n    date_diff('month', s.FirstOrder, s.LastOrder) AS TenureMonths,\n    CASE\n        WHEN s.Revenue IS NULL THEN 'none'\n        WHEN s.Revenue >= 2000 THEN 'high'\n        WHEN s.Revenue >= 500 THEN 'mid'\n        ELSE 'low'\n    END AS Segment\nFROM {{ source('legacy', 'Customers') }} c\nLEFT JOIN spend s\n    ON s.CustomerID = c.CustomerID",
+   "param_filter": null,
+   "status": "match",
+   "detail": {
+    "runs": 4,
+    "rows": 112
+   }
+  }
+ ],
+ "explanation": "This procedure builds a per-customer spending summary from orders with status 'shipped' or 'closed'. For each customer it totals line revenue (quantity times unit price), finds the first and last order dates, and computes the number of months between them. Every customer is listed, with zero revenue shown as a 'none' segment when they have no qualifying orders, and 'low', 'mid', or 'high' otherwise based on revenue thresholds.",
+ "llm_calls": [
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 2035,
+   "output_tokens": 1871,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.001139
+  }
+ ],
+ "cost_usd": 0.001139
+}

@@ -1,11 +1,18 @@
-"""Migrate one proc: triage -> translate -> dbt run -> row-by-row diff on every dataset -> retry with feedback.
+"""Migrate one proc: triage -> translate -> dbt run -> row-by-row diff on every dataset and parameter set -> retry.
 
+The proc's output is the table named in meta.json ("output"), or else the result set it returns. Parameterized procs
+are translated to one parameter-free model plus a row filter; each parameter set is checked separately.
 Procs that triage flags still get a proposal (model + assumptions + reviewer questions), verified as far as the
 blocker allows, but they always end as needs_human."""
 import json
 import traceback
+from datetime import date, datetime
+from decimal import Decimal
 from pathlib import Path
-from harness import legacy, dbt_runner, diff, translate, preflight
+
+from harness import dbt_runner, diff, preflight, translate
+from harness.legacy import Legacy
+from harness.project import Project
 
 MAX_ATTEMPTS = 3
 SMALL_TABLE_ROWS = 5  # tables this small are shown to the model when a proc is blocked (e.g. config tables)
@@ -34,65 +41,135 @@ def _shape_compare(legacy_cols, legacy_rows, new_cols, new_rows):
     return {"equivalent": not issues, "legacy_rows": len(legacy_rows), "new_rows": len(new_rows), "issues": issues}
 
 
-def migrate(proc_dir: Path):
+def _coerce(value, tsql_type):
+    """JSON param value -> Python value matching the parameter's declared type."""
+    if value is None or not isinstance(value, str):
+        return value
+    t = tsql_type.lower()
+    if t in ("int", "bigint", "smallint", "tinyint", "bit"):
+        return int(value)
+    if t.startswith(("decimal", "numeric", "money", "float", "real")):
+        return Decimal(value)
+    if t == "date":
+        return date.fromisoformat(value)
+    if t.startswith(("datetime", "smalldatetime")):
+        return datetime.fromisoformat(value)
+    return value
+
+
+def migrate(project: Project, proc_dir: Path):
     meta = json.loads((proc_dir / "meta.json").read_text())
-    base = {"id": meta["id"], "slug": meta["slug"], "difficulty": meta["difficulty"], "tags": meta["tags"]}
+    base = {"id": meta["id"], "slug": meta["slug"], "difficulty": meta.get("difficulty", "unknown"), "tags": meta.get("tags", [])}
     try:
-        return _migrate(proc_dir, meta, base)
+        return _migrate(project, proc_dir, meta, base)
     except Exception as e:  # one broken proc must not kill the batch
         return {**base, "status": "error", "reason_category": "harness_error", "reason": f"{type(e).__name__}: {e}",
                 "trace": traceback.format_exc()[-2000:], "attempts": 0, "history": []}
 
 
-def _migrate(proc_dir, meta, base):
-    proc_sql = (proc_dir / "proc.sql").read_text()
+def _run_legacy(project, meta, proc_sql, param_sets, check_determinism):
+    """Returns (schema, base_sources, expected, problem). expected[(variant, i)] = (cols, rows)."""
+    expected, problem, schema, base_sources = {}, None, None, None
+    with Legacy(project) as L:
+        for v in project.variants:
+            L.load(v)
+            L.create_proc(proc_sql)
+            sources = L.sources()
+            if schema is None:
+                schema, base_sources = L.schema(), sources
+            dbt_runner.load_sources(schema, sources, v, project.source_name)
+            for i, ps in enumerate(param_sets):
+                outs = []
+                for _ in range(2 if check_determinism else 1):
+                    if L.loaded is None:  # proc broke out of our transaction; reload clean data
+                        L.load(v)
+                        L.create_proc(proc_sql)
+                    r = L.run(meta["proc"], ps, meta.get("output"))
+                    if r["table"] is not None:
+                        outs.append(r["table"])
+                    elif len(r["result_sets"]) == 1:
+                        outs.append(r["result_sets"][0])
+                    elif not r["result_sets"]:
+                        return schema, base_sources, expected, ("no_output", "Procedure neither returns a result set nor builds a known output table; it only changes data.")
+                    else:
+                        outs.append(r["result_sets"][-1])
+                        problem = problem or ("multiple_result_sets", f"Procedure returns {len(r['result_sets'])} result sets; a dbt model produces one. The proposal covers the last one.")
+                if len(outs) == 2 and _canon(outs[0]) != _canon(outs[1]):
+                    problem = ("nondeterministic", f"Legacy proc returns different output on identical input (dataset {v}).")
+                expected[(v, i)] = outs[0]
+    return schema, base_sources, expected, problem
 
-    flags = preflight.triage(proc_sql, meta["output"], legacy.SOURCE_TABLES)
+
+def _migrate(project, proc_dir, meta, base):
+    proc_sql = (proc_dir / "proc.sql").read_text()
+    params = meta.get("params", [])
+    raw_sets = meta.get("param_sets") or [{}]
+    param_sets = [{k: _coerce(v, next((p["type"] for p in params if p["name"].lower() == k.lower()), "")) for k, v in ps.items()}
+                  for ps in raw_sets]
+
+    flags = preflight.triage(proc_sql, meta.get("output") or "", project.tables)
+    if meta.get("blocker"):  # set by intake, e.g. no parameter values could be derived
+        flags.insert(0, tuple(meta["blocker"]))
+    if any(p.get("output") for p in params):
+        flags.append(("output_parameters", "Returns values through OUTPUT parameters; a dbt model can only return rows."))
     blocker = flags[0] if flags else None
+    if blocker and (blocker[0] == "no_param_values" or translate.MODE == "reference"):
+        return _human(base, *blocker)
+
+    nondet = bool(blocker and blocker[0] == "nondeterministic")
+    schema, base_sources, expected, problem = _run_legacy(project, meta, proc_sql, param_sets, not nondet)
+    if problem and problem[0] == "no_output":
+        return _human(base, *problem)
+    blocker = blocker or problem
     if blocker and translate.MODE == "reference":
         return _human(base, *blocker)
 
-    expected = {}
-    for v in legacy.VARIANTS:
-        schema, sources, out = legacy.run_proc(proc_sql, meta["proc"], meta["output"], v)
-        if not (blocker and blocker[0] == "nondeterministic"):
-            _, _, again = legacy.run_proc(proc_sql, meta["proc"], meta["output"], v)
-            if _canon(out) != _canon(again):  # objective determinism check
-                blocker = ("nondeterministic", f"Legacy proc returns different output on identical input (dataset {v}).")
-        dbt_runner.load_sources(schema, sources, v)
-        expected[v] = out
-        if v == "base":
-            base_schema, base_sources = schema, sources
-    dbt_runner.write_sources_yml(list(base_sources))
-    small = {t: (cols, rows) for t, (cols, rows) in base_sources.items() if len(rows) <= SMALL_TABLE_ROWS} if blocker else None
+    dbt_runner.write_sources_yml([project.source_name(t) for t in base_sources])
+    dbt_runner.use_for_dbt(project.variants[0])
+    small = {t: (c, r) for t, (c, r) in base_sources.items() if len(r) <= SMALL_TABLE_ROWS} if blocker else None
     compare = _shape_compare if blocker and blocker[0] == "nondeterministic" else diff.compare
-
-    ok, sql, history, datasets, extra, last = _attempts(proc_dir, meta, proc_sql, base_schema, expected, compare, blocker, small)
+    ok, sql, pfilter, history, runs, extra, last = _attempts(
+        project, proc_dir, meta, proc_sql, schema, expected, param_sets, params, compare, blocker, small)
 
     if blocker:
         r = _human(base, *blocker, history, sql)
         r["proposal"] = {
-            "model_sql": sql, "assumptions": last.get("assumptions"), "questions": last.get("questions"),
+            "model_sql": sql, "param_filter": pfilter, "assumptions": last.get("assumptions"), "questions": last.get("questions"),
             "not_migrated": last.get("not_migrated"),
             "verification": (("shape only (columns + row count)" if compare is _shape_compare else "output rows match")
-                             + f" on {len(datasets)} datasets") if ok else "not verified: " + (history[-1]["status"] if history else "no model"),
+                             + f" on {len(runs)} dataset/parameter runs") if ok else "not verified: " + (history[-1]["status"] if history else "no model"),
         }
         return {**r, **extra}
     if ok:
-        return {**base, "status": "verified", "attempts": len(history), "rows": sum(datasets.values()), "datasets": datasets,
-                "model_sql": sql, "history": history, **extra}
+        datasets = {}
+        for (v, _), n in runs.items():
+            datasets[v] = datasets.get(v, 0) + n
+        return {**base, "status": "verified", "attempts": len(history), "rows": sum(runs.values()), "datasets": datasets,
+                "param_sets": len(param_sets), "model_sql": sql, "param_filter": pfilter, "history": history, **extra}
     if sql is None and translate.MODE == "reference":
         return {**_human(base, "no_translation", "Translator produced no model.", history), **extra}
+    if history and history[-1]["status"] == "not_filterable":
+        why = history[-1]["detail"].split(":", 1)[-1].strip()
+        return {**_human(base, "parameter_changes_grain",
+                         f"Parameters change which rows are aggregated, so no single parameter-free model plus row filter can reproduce it. {why}",
+                         history, sql), **extra}
     return {**_human(base, "unresolved_diff", f"Outputs still differ after {MAX_ATTEMPTS} attempts.", history, sql), **extra}
 
 
-def _attempts(proc_dir, meta, proc_sql, schema, expected, compare, blocker, small):
-    """Translate -> run -> compare on every dataset, up to MAX_ATTEMPTS.
-    Returns (ok, sql, history, datasets, extra, last_translation)."""
-    history, sql, explanation, calls, t = [], None, None, [], {}
-    extra = {}
+def _with_defaults(ps, params):
+    """Parameter values the proc actually sees: the set, plus declared defaults for omitted parameters."""
+    full = {p["name"]: _coerce(p["default"], p["type"]) for p in params if not p["output"] and p.get("has_default")}
+    full.update({next((p["name"] for p in params if p["name"].lower() == k.lower()), k): v for k, v in ps.items()})
+    return full
+
+
+def _attempts(project, proc_dir, meta, proc_sql, schema, expected, param_sets, params, compare, blocker, small):
+    """Translate -> run -> compare on every dataset x parameter set, up to MAX_ATTEMPTS.
+    Returns (ok, sql, param_filter, history, runs, extra, last_translation)."""
+    history, sql, pfilter, explanation, calls, t, extra = [], None, None, None, [], {}, {}
+    out_cols = expected[(project.variants[0], 0)][0]
     for attempt in range(1, MAX_ATTEMPTS + 1):
-        t = translate.translate(proc_dir, proc_sql, schema, expected["base"][0], history, blocker, small)
+        t = translate.translate(proc_dir, proc_sql, schema, out_cols, history, blocker, small, params, project.source_name)
         if t["usage"]:
             calls.append(t["usage"])
         explanation = explanation or t["explanation"]
@@ -102,26 +179,35 @@ def _attempts(proc_dir, meta, proc_sql, schema, expected, compare, blocker, smal
                 break
             history.append({"attempt": attempt, "sql": "", "status": "bad_response", "detail": t["error"]})
             continue
-        sql = t["sql"]
-        got, err = dbt_runner.run_model(meta["slug"], sql)
-        if err:
-            history.append({"attempt": attempt, "sql": sql, "status": "dbt_error", "detail": err})
+        sql, pfilter = t["sql"], t.get("param_filter")
+        entry = {"attempt": attempt, "sql": sql, "param_filter": pfilter}
+        if params and not pfilter:
+            history.append({**entry, "status": "bad_response", "detail": "parameterized procedure but no <param_filter> block"})
             continue
-        datasets, failed = {}, None
-        for v in legacy.VARIANTS:
-            if v != "base":
-                got, err = dbt_runner.run_compiled(meta["slug"], v)
-                if err:
-                    failed = {"attempt": attempt, "sql": sql, "status": "runtime_error", "detail": f"dataset {v}: {err}"}
-                    break
-            res = compare(*expected[v], *got)
-            if not res["equivalent"]:
-                failed = {"attempt": attempt, "sql": sql, "status": "diff", "detail": {"dataset": v, **res}}
+        if pfilter and pfilter.upper().startswith("NOT_FILTERABLE"):
+            history.append({**entry, "status": "not_filterable", "detail": pfilter})
+            return False, sql, pfilter, history, {}, extra, t
+        _, err = dbt_runner.run_model(meta["slug"], sql)
+        if err:
+            history.append({**entry, "status": "dbt_error", "detail": err})
+            continue
+        runs, failed = {}, None
+        for (v, i), exp in expected.items():
+            ps = param_sets[i]
+            where = dbt_runner.render_filter(pfilter, _with_defaults(ps, params)) if pfilter else None
+            got, err = dbt_runner.run_compiled(meta["slug"], v, exp[0], where)
+            where_run = {"dataset": v, **({"params": {k: str(x) for k, x in ps.items()}} if ps else {})}
+            if err:
+                failed = {**entry, "status": "runtime_error", "detail": f"{json.dumps(where_run)}: {err}"}
                 break
-            datasets[v] = res["legacy_rows"]
+            res = compare(*exp, *got)
+            if not res["equivalent"]:
+                failed = {**entry, "status": "diff", "detail": {**where_run, **res}}
+                break
+            runs[(v, i)] = res["legacy_rows"]
         if failed:
             history.append(failed)
             continue
-        history.append({"attempt": attempt, "sql": sql, "status": "match", "detail": {"datasets": datasets}})
-        return True, sql, history, datasets, extra, t
-    return False, sql, history, {}, extra, t
+        history.append({**entry, "status": "match", "detail": {"runs": len(runs), "rows": sum(runs.values())}})
+        return True, sql, pfilter, history, runs, extra, t
+    return False, sql, pfilter, history, {}, extra, t

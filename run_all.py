@@ -1,21 +1,28 @@
+"""Migrate every proc in a project. Usage: run_all.py [--project NAME] [name-filter ...]"""
+import argparse
 import json
 import shutil
-import sys
-from pathlib import Path
+
+from harness import project as projects
 from migrate import migrate
 
-dirs = sorted(d for d in Path("procs").iterdir() if d.is_dir())
-filters = sys.argv[1:]
-if filters:
-    dirs = [d for d in dirs if any(a in d.name for a in filters)]
-elif Path("results").exists():
-    shutil.rmtree("results")  # full run: drop stale results from renamed/removed procs
-Path("results").mkdir(exist_ok=True)
+ap = argparse.ArgumentParser()
+ap.add_argument("--project", default="corpus", help="'corpus' (default) or a projects/<name> folder")
+ap.add_argument("filters", nargs="*")
+args = ap.parse_args()
+
+proj = projects.load(args.project)
+dirs = sorted(d for d in proj.procs.iterdir() if d.is_dir())
+if args.filters:
+    dirs = [d for d in dirs if any(a in d.name for a in args.filters)]
+elif proj.results.exists():
+    shutil.rmtree(proj.results)  # full run: drop stale results from renamed/removed procs
+proj.results.mkdir(parents=True, exist_ok=True)
 for d in dirs:
-    r = migrate(d)
-    (Path("results") / f"{d.name}.json").write_text(json.dumps(r, indent=1, default=str))
+    r = migrate(proj, d)
+    (proj.results / f"{d.name}.json").write_text(json.dumps(r, indent=1, default=str))
     print(f"{r['status']:12} {d.name} {r.get('reason_category', '')}", flush=True)
-    if r["status"] != "verified" and r["history"]:
-        print("   ", json.dumps(r["history"][-1]["detail"], default=str)[:400])
-    elif r["status"] == "error":
+    if r["status"] == "error":
         print("   ", r["reason"])
+    elif r["status"] != "verified" and r["history"]:
+        print("   ", json.dumps(r["history"][-1]["detail"], default=str)[:400])

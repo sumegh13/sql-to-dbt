@@ -29,12 +29,12 @@ MODE = os.environ.get("TRANSLATOR") or ("claude" if os.environ.get("ANTHROPIC_AP
 
 SYSTEM = """You migrate legacy SQL Server stored procedures to dbt models that run on DuckDB.
 
-Each procedure builds exactly one output table. Write ONE dbt model: a single SELECT statement (CTEs allowed) whose result has exactly the same rows as that output table, run against the same source data.
+Each procedure produces one output: a table it builds, or the result set it returns. Write ONE dbt model: a single SELECT statement (CTEs allowed) whose result has exactly the same rows as that output, run against the same source data.
 
 Rules for the model:
-- Read sources only via {{ source('legacy', '<table>') }}. The legacy table dbo.orders is {{ source('legacy', 'orders') }}.
+- Read sources only via {{ source('legacy', '<name>') }}, using the source name given for each legacy table.
 - No trailing semicolon, no DDL/DML, no file or network access, no Jinja beyond source().
-- Output columns: exactly the names and order given, nothing extra.
+- Output columns: include every output column, with exactly the names given.
 - Row order does not matter. Duplicate row counts do.
 - Convert cursors, WHILE loops, temp tables, table variables, UPDATE/DELETE on temp tables and MERGE into set-based SQL (window functions, CTEs, joins).
 
@@ -48,6 +48,16 @@ Preserve T-SQL semantics exactly. Common traps:
 - PIVOT with ISNULL gives 0 for missing combinations. CROSS APPLY drops outer rows with no match; OUTER APPLY keeps them.
 - Aggregates over DECIMAL columns may keep the input scale in DuckDB; cast to DOUBLE where T-SQL returns float or a higher-scale value.
 
+Parameterized procedures: a dbt model has no parameters. Write the model for ALL parameter values at once, and add a
+<param_filter> block: a DuckDB boolean expression over your model's columns, using @ParamName placeholders, that selects
+the rows the procedure returns for given parameter values (e.g. customer_id = @CustomerID AND order_date >= @StartDate).
+Keep any columns the filter needs in the model output, even if they are not output columns; the harness projects to the
+output columns after filtering. Mirror the procedure's handling of NULL parameters (e.g. "@X IS NULL OR col = @X").
+If the procedure's rows cannot be expressed as a row filter over one parameter-free model (e.g. parameters restrict
+which rows feed an aggregate, so the totals themselves depend on the parameter values), do not guess: output
+<param_filter>NOT_FILTERABLE: one sentence on why</param_filter> with your best model, and the harness escalates to a human.
+Parameters with defaults may be omitted by callers; the filter sees the default value then.
+
 Respond in exactly this format:
 <explanation>2-4 plain-English sentences on what the procedure does, for a business reader.</explanation>
 <sql>
@@ -55,18 +65,20 @@ the dbt model
 </sql>"""
 
 
-def _schema_text(schema):
-    return "\n".join(f"{t}({', '.join(f'{c} {ty}' for c, ty in cols)})" for t, cols in schema.items())
+def _schema_text(schema, source_name):
+    return "\n".join(f"{t} -> source('legacy', '{source_name(t)}'): ({', '.join(f'{c} {ty}' for c, ty in cols)})"
+                     for t, cols in schema.items())
 
 
 def _feedback(history):
     parts = []
     for h in history[-2:]:  # last two attempts keep the prompt small
         detail = h["detail"] if isinstance(h["detail"], str) else json.dumps(h["detail"], default=str)
-        parts.append(f"Attempt {h['attempt']} ({h['status']}):\n<sql>\n{h['sql']}\n</sql>\nResult: {detail[:3000]}")
+        pf = f"\n<param_filter>{h['param_filter']}</param_filter>" if h.get("param_filter") else ""
+        parts.append(f"Attempt {h['attempt']} ({h['status']}):\n<sql>\n{h['sql']}\n</sql>{pf}\nResult: {detail[:3000]}")
     return ("\n\nYour previous attempts did not match the legacy output. The model is checked against several "
             "source datasets (base, random seeds, and an 'edge' set with NULLs, trailing spaces, ties, boundary values, "
-            "orphan rows); 'dataset' names the one that failed. 'in_legacy_not_new' rows are what the "
+            "orphan rows) and, for parameterized procedures, several parameter sets; 'dataset' and 'params' name the run that failed. 'in_legacy_not_new' rows are what the "
             "procedure produced that your model did not; 'in_new_not_legacy' rows are what your model produced instead. "
             "Find the semantic difference and fix it.\n\n" + "\n\n".join(parts))
 
@@ -84,12 +96,16 @@ def _blocker_text(blocker, small_tables):
             "<not_migrated>procedure behaviour your model does not reproduce (side effects, writes to other tables), or 'none'</not_migrated>")
 
 
-def _claude(proc_sql, schema, output_columns, history, blocker=None, small_tables=None):
+def _claude(proc_sql, schema, output_columns, history, blocker=None, small_tables=None, params=None, source_name=None):
     import anthropic
     client = anthropic.Anthropic()
-    prompt = (f"Source tables (SQL Server types):\n{_schema_text(schema)}\n\n"
-              f"Output columns, in order: {', '.join(output_columns)}\n\n"
-              f"Procedure:\n<tsql>\n{proc_sql}\n</tsql>")
+    source_name = source_name or (lambda t: t.rpartition(".")[2])
+    prompt = (f"Source tables (legacy name -> dbt source, SQL Server types):\n{_schema_text(schema, source_name)}\n\n"
+              f"Output columns, in order: {', '.join(output_columns)}\n\n")
+    if params:
+        prompt += ("Parameters: " + ", ".join(f"{p['name']} {p['type']}" + (f" = {p['default']}" if p.get("default") is not None else "")
+                                              for p in params) + ". Include a <param_filter> block.\n\n")
+    prompt += f"Procedure:\n<tsql>\n{proc_sql}\n</tsql>"
     if blocker:
         prompt += _blocker_text(blocker, small_tables or {})
     if history:
@@ -117,15 +133,18 @@ def _claude(proc_sql, schema, output_columns, history, blocker=None, small_table
         sql = re.sub(r"^```\w*\s*|\s*```$", "", sql).strip().rstrip(";")
     tag = lambda name: (m.group(1).strip() if (m := re.search(rf"<{name}>\s*(.*?)\s*</{name}>", text, re.S)) else None)
     return {"sql": sql, "explanation": expl.group(1) if expl else None, "usage": usage,
-            "assumptions": tag("assumptions"), "questions": tag("questions"), "not_migrated": tag("not_migrated"),
+            "param_filter": tag("param_filter"), "assumptions": tag("assumptions"), "questions": tag("questions"), "not_migrated": tag("not_migrated"),
             "error": None if sql else f"no <sql> block in response (stop_reason={resp.stop_reason})"}
 
 
 def translate(proc_dir: Path, proc_sql: str, schema: dict, output_columns: list[str], history: list[dict],
-              blocker: tuple[str, str] | None = None, small_tables: dict | None = None) -> dict:
+              blocker: tuple[str, str] | None = None, small_tables: dict | None = None,
+              params: list[dict] | None = None, source_name=None) -> dict:
     """Returns {"sql", "explanation", "usage", "error"} (+ "assumptions", "questions", "not_migrated" when blocker is set).
     blocker = (category, reason) from triage: ask for a proposal for human review instead of a plain translation."""
     if MODE == "reference":
         f = proc_dir / "reference_model.sql"
-        return {"sql": f.read_text() if f.exists() else None, "explanation": None, "usage": None, "error": None}
-    return _claude(proc_sql, schema, output_columns, history, blocker, small_tables)
+        pf = proc_dir / "reference_filter.txt"
+        return {"sql": f.read_text() if f.exists() else None, "param_filter": pf.read_text().strip() if pf.exists() else None,
+                "explanation": None, "usage": None, "error": None}
+    return _claude(proc_sql, schema, output_columns, history, blocker, small_tables, params, source_name)

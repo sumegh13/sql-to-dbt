@@ -40,11 +40,20 @@ SANDBOX = {"enable_external_access": False, "autoload_known_extensions": False, 
 
 
 def db_path(variant: str) -> Path:
-    """dbt runs against the base DB; other variants live in same-named files so compiled SQL resolves."""
-    return DB if variant == "base" else ROOT / "target" / "variants" / variant / "warehouse.duckdb"
+    """Every dataset lives in a file named warehouse.duckdb so the compiled SQL's catalog name resolves.
+    dbt itself runs against DB, which holds a copy of the base dataset."""
+    return ROOT / "target" / "variants" / variant / "warehouse.duckdb"
 
 
-def load_sources(schema, sources, variant="base"):
+def use_for_dbt(variant: str):
+    """Point dbt's warehouse at this dataset (dbt run only needs it to compile + smoke-run the model)."""
+    import shutil
+    DB.unlink(missing_ok=True)
+    shutil.copyfile(db_path(variant), DB)
+
+
+def load_sources(schema, sources, variant, source_name):
+    """schema/sources keyed by legacy table name; source_name maps legacy name -> DuckDB table in schema legacy."""
     path = db_path(variant)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.unlink(missing_ok=True)
@@ -52,7 +61,7 @@ def load_sources(schema, sources, variant="base"):
     try:
         con.execute("create schema legacy")
         for t, (cols, rows) in sources.items():
-            name = t.split(".")[-1]
+            name = source_name(t)
             ddl = ", ".join(f'"{c}" {duck_type(ty)}' for c, ty in schema[t])
             con.execute(f"create table legacy.{name} ({ddl})")
             if rows:
@@ -62,8 +71,8 @@ def load_sources(schema, sources, variant="base"):
         con.close()
 
 
-def write_sources_yml(tables):
-    body = "version: 2\nsources:\n  - name: legacy\n    schema: legacy\n    tables:\n" + "".join(f"      - name: {t.split('.')[-1]}\n" for t in tables)
+def write_sources_yml(names):
+    body = "version: 2\nsources:\n  - name: legacy\n    schema: legacy\n    tables:\n" + "".join(f"      - name: {n}\n" for n in names)
     (ROOT / "models" / "sources.yml").write_text(body)
 
 
@@ -99,9 +108,40 @@ def run_model(model_name, model_sql):
         con.close()
 
 
-def run_compiled(model_name, variant):
-    """Execute the model dbt compiled in the last run_model() against another dataset, sandboxed."""
+def _duck_literal(v):
+    from datetime import date, datetime
+    from decimal import Decimal
+    if v is None:
+        return "NULL"
+    if isinstance(v, bool):
+        return "TRUE" if v else "FALSE"
+    if isinstance(v, (int, float, Decimal)):
+        return str(v)
+    if isinstance(v, datetime):
+        return f"TIMESTAMP '{v.isoformat(sep=' ')}'"
+    if isinstance(v, date):
+        return f"DATE '{v.isoformat()}'"
+    return "'" + str(v).replace("'", "''") + "'"
+
+
+def render_filter(expr: str, params: dict) -> str:
+    """Substitute @Param placeholders in a model filter expression with DuckDB literals."""
+    for k in sorted(params, key=len, reverse=True):
+        expr = re.sub(re.escape(k) + r"\b", lambda _: _duck_literal(params[k]), expr, flags=re.I)
+    return expr
+
+
+def run_compiled(model_name, variant, columns=None, filter_expr=None):
+    """Execute the model dbt compiled in the last run_model() against a dataset, sandboxed. Projects to the
+    expected columns (a model may carry extra columns for parameter filtering) and applies the rendered filter."""
     sql = (ROOT / "target" / "compiled" / "migrated" / "models" / f"{model_name}.sql").read_text()
+    if filter_expr:
+        reason = check_model_sql(filter_expr)
+        if reason or "@" in filter_expr:
+            return None, f"bad param_filter {filter_expr!r}: {reason or 'unresolved @parameter'}"
+    if columns or filter_expr:
+        cols = ", ".join('"' + c.replace('"', '""') + '"' for c in columns) if columns else "*"
+        sql = f"select {cols} from (\n{sql}\n) as m" + (f" where {filter_expr}" if filter_expr else "")
     con = duckdb.connect(str(db_path(variant)), read_only=True, config=SANDBOX)
     try:
         cur = con.execute(sql)

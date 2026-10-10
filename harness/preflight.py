@@ -16,6 +16,20 @@ WRITE = re.compile(r"\b(?:INSERT\s+(?:INTO\s+)?|UPDATE\s+|DELETE\s+(?:FROM\s+)?|
                    r"((?:\[?\w+\]?\.)?\[?\w+\]?)", re.I)
 
 
+def write_targets(sql: str) -> list[str]:
+    """Tables written by INSERT/UPDATE/DELETE/MERGE/TRUNCATE/DROP, with aliases resolved:
+    `UPDATE c SET ... FROM dbo.Customers c` writes dbo.Customers, not a table named c."""
+    out = []
+    for name in WRITE.findall(sql):
+        if "." not in name and not name.startswith(("#", "@")):
+            alias = name.strip("[]")
+            m = re.search(rf"\b(?:FROM|JOIN)\s+((?:\[?\w+\]?\.)?\[?#?\w+\]?)\s+(?:AS\s+)?\[?{re.escape(alias)}\]?(?![\w.])", sql, re.I)
+            if m:
+                name = m.group(1)
+        out.append(name)
+    return out
+
+
 def _strip_comments(sql):
     return re.sub(r"--[^\n]*", "", re.sub(r"/\*.*?\*/", "", sql, flags=re.S))
 
@@ -30,7 +44,8 @@ def triage(proc_sql: str, output_table: str, source_tables: list[str]):
     sql = _strip_comments(proc_sql)
     found = [(c, why) for c, pat, why in RULES if re.search(pat, sql, re.I)]
     sources = {_canon(t) for t in source_tables}
-    mutated = sorted({_canon(m) for m in WRITE.findall(sql) if not m.startswith(("#", "@"))} & sources - {_canon(output_table)})
+    mutated = sorted({_canon(m) for m in write_targets(sql) if not m.lstrip("[").startswith(("#", "@"))} & sources
+                     - ({_canon(output_table)} if output_table else set()))
     if mutated:
         found.append(("mutates_source", f"Modifies existing tables in place ({', '.join(mutated)}); a dbt model can only build new relations, so this needs a design decision (incremental/snapshot/ops job)."))
     return found

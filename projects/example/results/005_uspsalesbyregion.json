@@ -1,0 +1,32 @@
+{
+ "id": 5,
+ "slug": "uspsalesbyregion",
+ "difficulty": "unknown",
+ "tags": [],
+ "status": "needs_human",
+ "reason_category": "parameter_changes_grain",
+ "reason": "Parameters change which rows are aggregated, so no single parameter-free model plus row filter can reproduce it. The procedure returns one total per region over the whole date range, so the date parameters change the aggregated totals themselves. A row filter over the (region, date) grain would return per-day rows that still need re-aggregating, which the harness cannot do.",
+ "attempts": 1,
+ "history": [
+  {
+   "attempt": 1,
+   "sql": "WITH base AS (\n    SELECT\n        o.OrderID,\n        o.OrderDate,\n        ISNULL(c.Region, 'Unassigned') AS region_raw,\n        l.Quantity,\n        l.UnitPrice\n    FROM {{ source('legacy', 'Sales_Orders') }} o\n    JOIN {{ source('legacy', 'Customers') }} c\n        ON c.CustomerID = o.CustomerID\n    JOIN {{ source('legacy', 'Sales_OrderLines') }} l\n        ON l.OrderID = o.OrderID\n    WHERE lower(rtrim(o.Status)) <> 'cancelled'\n)\nSELECT\n    min(region_raw) AS Region,\n    OrderDate,\n    COUNT(DISTINCT OrderID) AS Orders,\n    CAST(SUM(Quantity * UnitPrice) AS DECIMAL(38,2)) AS GrossRevenue\nFROM base\nGROUP BY lower(rtrim(region_raw)), OrderDate",
+   "param_filter": "NOT_FILTERABLE: The procedure returns one total per region over the whole date range, so the date parameters change the aggregated totals themselves. A row filter over the (region, date) grain would return per-day rows that still need re-aggregating, which the harness cannot do.",
+   "status": "not_filterable",
+   "detail": "NOT_FILTERABLE: The procedure returns one total per region over the whole date range, so the date parameters change the aggregated totals themselves. A row filter over the (region, date) grain would return per-day rows that still need re-aggregating, which the harness cannot do."
+  }
+ ],
+ "model_sql": "WITH base AS (\n    SELECT\n        o.OrderID,\n        o.OrderDate,\n        ISNULL(c.Region, 'Unassigned') AS region_raw,\n        l.Quantity,\n        l.UnitPrice\n    FROM {{ source('legacy', 'Sales_Orders') }} o\n    JOIN {{ source('legacy', 'Customers') }} c\n        ON c.CustomerID = o.CustomerID\n    JOIN {{ source('legacy', 'Sales_OrderLines') }} l\n        ON l.OrderID = o.OrderID\n    WHERE lower(rtrim(o.Status)) <> 'cancelled'\n)\nSELECT\n    min(region_raw) AS Region,\n    OrderDate,\n    COUNT(DISTINCT OrderID) AS Orders,\n    CAST(SUM(Quantity * UnitPrice) AS DECIMAL(38,2)) AS GrossRevenue\nFROM base\nGROUP BY lower(rtrim(region_raw)), OrderDate",
+ "explanation": "This procedure totals sales by customer region for orders placed between two dates. It leaves out cancelled orders and reports, for each region, the number of distinct orders and the gross revenue (quantity times unit price). Orders with no region are grouped under \"Unassigned\".",
+ "llm_calls": [
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 1884,
+   "output_tokens": 2750,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.001563
+  }
+ ],
+ "cost_usd": 0.001563
+}

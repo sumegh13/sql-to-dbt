@@ -1,0 +1,40 @@
+{
+ "id": 2,
+ "slug": "uspdeactivatedormantcustomers",
+ "difficulty": "unknown",
+ "tags": [],
+ "status": "needs_human",
+ "reason_category": "mutates_source",
+ "reason": "Modifies existing tables in place (dbo.customers); a dbt model can only build new relations, so this needs a design decision (incremental/snapshot/ops job).",
+ "attempts": 1,
+ "history": [
+  {
+   "attempt": 1,
+   "sql": "WITH last_orders AS (\n    SELECT\n        CustomerID,\n        MAX(OrderDate) AS last_order_date\n    FROM {{ source('legacy', 'Sales_Orders') }}\n    GROUP BY CustomerID\n)\nSELECT\n    c.CustomerID,\n    c.CustomerName,\n    c.Status,\n    lo.last_order_date\nFROM {{ source('legacy', 'Customers') }} c\nLEFT JOIN last_orders lo\n    ON lo.CustomerID = c.CustomerID",
+   "param_filter": "NOT_FILTERABLE: the Status output value depends on @AsOfDate, because customers with no order in the 180 days before that date are reported as 'inactive' even when their stored status is 'active', so a row filter over stored columns cannot reproduce the output values.",
+   "status": "not_filterable",
+   "detail": "NOT_FILTERABLE: the Status output value depends on @AsOfDate, because customers with no order in the 180 days before that date are reported as 'inactive' even when their stored status is 'active', so a row filter over stored columns cannot reproduce the output values."
+  }
+ ],
+ "model_sql": "WITH last_orders AS (\n    SELECT\n        CustomerID,\n        MAX(OrderDate) AS last_order_date\n    FROM {{ source('legacy', 'Sales_Orders') }}\n    GROUP BY CustomerID\n)\nSELECT\n    c.CustomerID,\n    c.CustomerName,\n    c.Status,\n    lo.last_order_date\nFROM {{ source('legacy', 'Customers') }} c\nLEFT JOIN last_orders lo\n    ON lo.CustomerID = c.CustomerID",
+ "proposal": {
+  "model_sql": "WITH last_orders AS (\n    SELECT\n        CustomerID,\n        MAX(OrderDate) AS last_order_date\n    FROM {{ source('legacy', 'Sales_Orders') }}\n    GROUP BY CustomerID\n)\nSELECT\n    c.CustomerID,\n    c.CustomerName,\n    c.Status,\n    lo.last_order_date\nFROM {{ source('legacy', 'Customers') }} c\nLEFT JOIN last_orders lo\n    ON lo.CustomerID = c.CustomerID",
+  "param_filter": "NOT_FILTERABLE: the Status output value depends on @AsOfDate, because customers with no order in the 180 days before that date are reported as 'inactive' even when their stored status is 'active', so a row filter over stored columns cannot reproduce the output values.",
+  "assumptions": "- Status comparisons are case-insensitive and ignore trailing spaces, as in SQL Server's default collation, so the 'inactive' test is lower(rtrim(Status)) = 'inactive'.\n- The NOT EXISTS subquery is equivalent to \"MAX(OrderDate) is NULL or MAX(OrderDate) < @AsOfDate - 180 days\", since OrderDate is a date with no time part.\n- Customers with a NULL CustomerID or no orders have no matching order, so they count as dormant, as they do in the procedure's NOT EXISTS.\n- The UPDATE ran against the Customers table as it stood before the procedure was called, so the model reads the pre-update state.",
+  "questions": "- Should the output be produced by a model that persists the updated Status (a snapshot or an incremental job that actually runs the UPDATE), or is the read-only result set the only thing that must match?\n- Is the Status value in the output meant to be the post-update value ('inactive' for every row returned), and if so, which @AsOfDate should the model be built for?\n- If the procedure is run more than once, or for several as-of dates, should a customer deactivated by one run stay inactive in later runs, and how does that interact with the chosen design?\n- Are there case or whitespace variants of 'inactive' in the source data that the case-insensitive match should treat as equal?",
+  "not_migrated": "- The UPDATE that sets dbo.Customers.Status to 'inactive' is not reproduced. The model is read-only and only builds a new relation, so the persisted status change is lost.\n- The Status column in the model is the stored value, not the post-update value. For customers deactivated by @AsOfDate, the model shows the old status (for example 'active'), while the procedure returns 'inactive'. Matching the output requires a design decision (see the flagged review).\n- The procedure's SET NOCOUNT ON has no equivalent and has no effect on the result set.",
+  "verification": "not verified: not_filterable"
+ },
+ "explanation": "This procedure marks as 'inactive' every customer who has placed no order in the 180 days before the given as-of date. It then returns all customers whose status is 'inactive', which includes both the newly deactivated customers and any that were already inactive. The procedure's output is the list of customer IDs, names and statuses for those customers.",
+ "llm_calls": [
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 2022,
+   "output_tokens": 3159,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.001782
+  }
+ ],
+ "cost_usd": 0.001782
+}

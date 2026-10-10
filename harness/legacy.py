@@ -1,53 +1,104 @@
-"""Run a legacy T-SQL proc in SQL Server against the shared fixture and dump tables."""
-import json
+"""Run legacy T-SQL procs in SQL Server against a project's dataset variants.
+
+A dataset is loaded once per variant; each proc execution then runs inside a transaction that is rolled back,
+so procs that write tables can't leak state into the next run.
+"""
 import os
 import re
-from contextlib import closing
-from pathlib import Path
+from datetime import date, datetime
+from decimal import Decimal
 import pymssql
 
-CORPUS = Path(__file__).resolve().parent.parent / "corpus"
+from harness.project import Project
+
 CONN = dict(server=os.environ.get("MSSQL_HOST", "localhost"), user=os.environ.get("MSSQL_USER", "sa"),
             password=os.environ.get("MSSQL_SA_PASSWORD", "Legacy_Pass123"), autocommit=True)
-SOURCE_TABLES = json.loads((CORPUS / "tables.json").read_text())
-VARIANTS = json.loads((CORPUS / "variants.json").read_text())
 
 
-def _batches(sql: str):
+def batches(sql: str):
     return [b for b in re.split(r"^\s*GO\s*$", sql, flags=re.M | re.I) if b.strip()]
 
 
-def _dump(cur, t):
-    cur.execute(f"SELECT * FROM {t}")
-    return [d[0] for d in cur.description], cur.fetchall()
+def literal(v) -> str:
+    """Python value -> T-SQL literal."""
+    if v is None:
+        return "NULL"
+    if isinstance(v, bool):
+        return "1" if v else "0"
+    if isinstance(v, (int, float, Decimal)):
+        return str(v)
+    if isinstance(v, (date, datetime)):
+        return f"'{v.isoformat(sep=' ') if isinstance(v, datetime) else v.isoformat()}'"
+    return "N'" + str(v).replace("'", "''") + "'"
 
 
-def _schema(cur):
-    """{ 'dbo.t': [(col, 'decimal(18,2)'), ...] } from INFORMATION_SCHEMA, in column order."""
-    cur.execute("""SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, NUMERIC_PRECISION, NUMERIC_SCALE
-                   FROM INFORMATION_SCHEMA.COLUMNS ORDER BY TABLE_SCHEMA, TABLE_NAME, ORDINAL_POSITION""")
-    out = {}
-    for sch, tbl, col, dt, clen, prec, scale in cur.fetchall():
-        t = f"{sch}.{tbl}".lower()
-        if dt in ("decimal", "numeric"):
-            dt = f"{dt}({prec},{scale})"
-        elif dt in ("varchar", "nvarchar", "char", "nchar"):
-            dt = f"{dt}({'max' if clen == -1 else clen})"
-        out.setdefault(t, []).append((col, dt))
-    return out
+class Legacy:
+    def __init__(self, project: Project):
+        self.p = project
+        self.conn = pymssql.connect(**CONN)
+        self.cur = self.conn.cursor()
+        self.loaded = None
 
+    def __enter__(self):
+        return self
 
-def run_proc(proc_sql: str, proc_name: str, output_table: str, variant: str = "base"):
-    """Reset fixture, create + run proc. Returns (schema, sources_before, output).
-    Sources are dumped BEFORE the proc runs so procs that mutate them can't skew the baseline."""
-    with closing(pymssql.connect(**CONN)) as conn:
-        cur = conn.cursor()
-        for b in _batches((CORPUS / "fixtures" / f"{variant}.sql").read_text()):
+    def __exit__(self, *exc):
+        self.conn.close()
+
+    def load(self, variant: str):
+        cur = self.cur
+        if self.p.database:
+            db = self.p.database
+            cur.execute("USE master")
+            cur.execute(f"IF DB_ID('{db}') IS NOT NULL BEGIN ALTER DATABASE [{db}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [{db}] END")
+            cur.execute(f"CREATE DATABASE [{db}]")
+            cur.execute(f"USE [{db}]")
+        for b in batches((self.p.fixtures / f"{variant}.sql").read_text()):
             cur.execute(b)
-        schema = _schema(cur)
-        schema = {t: schema[t.lower()] for t in SOURCE_TABLES}
-        sources = {t: _dump(cur, t) for t in SOURCE_TABLES}
-        for b in _batches(proc_sql):
-            cur.execute(b)
-        cur.execute(f"EXEC {proc_name}")
-        return schema, sources, _dump(cur, output_table)
+        self.loaded = variant
+
+    def schema(self):
+        """{legacy_table: [(col, 'decimal(18,2)'), ...]} in column order, for the project's tables."""
+        self.cur.execute("""SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, NUMERIC_PRECISION, NUMERIC_SCALE
+                            FROM INFORMATION_SCHEMA.COLUMNS ORDER BY TABLE_SCHEMA, TABLE_NAME, ORDINAL_POSITION""")
+        out = {}
+        for sch, tbl, col, dt, clen, prec, scale in self.cur.fetchall():
+            if dt in ("decimal", "numeric"):
+                dt = f"{dt}({prec},{scale})"
+            elif dt in ("varchar", "nvarchar", "char", "nchar"):
+                dt = f"{dt}({'max' if clen == -1 else clen})"
+            out.setdefault(f"{sch}.{tbl}".lower(), []).append((col, dt))
+        return {t: out[t.lower()] for t in self.p.tables}
+
+    def dump(self, table: str):
+        self.cur.execute(f"SELECT * FROM {table}")
+        return [d[0] for d in self.cur.description], self.cur.fetchall()
+
+    def sources(self):
+        return {t: self.dump(t) for t in self.p.tables}
+
+    def create_proc(self, proc_sql: str):
+        for b in batches(proc_sql):
+            self.cur.execute(b)
+
+    def run(self, proc_name: str, params: dict, output_table: str | None):
+        """EXEC the proc in a rolled-back transaction. Returns {"result_sets": [(cols, rows)], "table": (cols, rows)|None}."""
+        cur = self.cur
+        args = ", ".join(f"{k} = {literal(v)}" for k, v in params.items())
+        cur.execute("BEGIN TRANSACTION")
+        try:
+            cur.execute(f"EXEC {proc_name} {args}")
+            sets = []
+            while True:
+                if cur.description:
+                    sets.append(([d[0] for d in cur.description], cur.fetchall()))
+                if not cur.nextset():
+                    break
+            table = self.dump(output_table) if output_table else None
+            return {"result_sets": sets, "table": table}
+        finally:
+            cur.execute("SELECT @@TRANCOUNT")
+            if cur.fetchone()[0] > 0:
+                cur.execute("ROLLBACK")
+            else:  # the proc committed or rolled back our transaction itself: data may be dirty
+                self.loaded = None
