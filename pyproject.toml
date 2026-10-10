@@ -10,6 +10,7 @@ dependencies = [
     "fastapi>=0.143.0",
     "pandas>=3.0.6",
     "pymssql>=2.4.3",
+    "python-multipart>=0.0.32",
     "sqlglot>=30.22.0",
     "uvicorn>=0.54.0",
 ]

@@ -25,7 +25,11 @@ def _load_dotenv():
 
 
 _load_dotenv()
-MODE = os.environ.get("TRANSLATOR") or ("claude" if os.environ.get("ANTHROPIC_API_KEY") else "reference")
+
+
+def mode() -> str:
+    """Checked per call, so a key supplied after startup (e.g. per web job) takes effect."""
+    return os.environ.get("TRANSLATOR") or ("claude" if os.environ.get("ANTHROPIC_API_KEY") else "reference")
 
 SYSTEM = """You migrate legacy SQL Server stored procedures to dbt models that run on DuckDB.
 
@@ -150,7 +154,7 @@ def translate(proc_dir: Path, proc_sql: str, schema: dict, output_columns: list[
               params: list[dict] | None = None, source_name=None, param_mode: str = "filter") -> dict:
     """Returns {"sql", "explanation", "usage", "error"} (+ "assumptions", "questions", "not_migrated" when blocker is set).
     blocker = (category, reason) from triage: ask for a proposal for human review instead of a plain translation."""
-    if MODE == "reference":
+    if mode() == "reference":
         f = proc_dir / "reference_model.sql"
         pf = proc_dir / "reference_filter.txt"
         return {"sql": f.read_text() if f.exists() else None, "param_filter": pf.read_text().strip() if pf.exists() else None,

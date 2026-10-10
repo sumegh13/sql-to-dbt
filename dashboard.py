@@ -6,21 +6,20 @@ from pathlib import Path
 
 from harness import project as projects
 
-ap = argparse.ArgumentParser()
-ap.add_argument("--project", default="corpus")
-proj = projects.load(ap.parse_args().project)
-out_file = Path("dashboard.html") if proj.name == "corpus" else proj.results.parent / "dashboard.html"
 
-rows = []
-for f in sorted(proj.results.glob("*.json")):
-    r = json.loads(f.read_text())
-    r["legacy_sql"] = (proj.procs / f.stem / "proc.sql").read_text()
-    meta = json.loads((proj.procs / f.stem / "meta.json").read_text())
-    # corpus procs are named by their folder; user projects by the real procedure name
-    r["name"] = f.stem if proj.name == "corpus" else meta["proc"]
-    r["retries"] = sum(1 for h in r.get("history", [])[:-1] if h.get("status") != "not_filterable")
-    rows.append(r)
-data = json.dumps(rows, default=str).replace("</", "<\\/")
+def render(proj) -> str:
+    rows = []
+    for f in sorted(proj.results.glob("*.json")):
+        r = json.loads(f.read_text())
+        r["legacy_sql"] = (proj.procs / f.stem / "proc.sql").read_text()
+        meta = json.loads((proj.procs / f.stem / "meta.json").read_text())
+        # corpus procs are named by their folder; user projects by the real procedure name
+        r["name"] = f.stem if proj.name == "corpus" else meta["proc"]
+        r["retries"] = sum(1 for h in r.get("history", [])[:-1] if h.get("status") != "not_filterable")
+        rows.append(r)
+    data = json.dumps(rows, default=str).replace("</", "<\\/")
+    return HTML.replace("%DATA%", data), len(rows)
+
 
 HTML = """<!doctype html><html lang=en><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
 <title>SQL to dbt Migration</title>
@@ -67,5 +66,11 @@ document.getElementById('app').innerHTML=`<h1><b>${ok.length} of ${R.length}</b>
 <div class=human><h2>Needs a human (${hu.length})</h2>${hu.map(r=>`<p><b>${esc(r.name)}</b>: ${esc(r.reason)}${r.proposal?` <span class=mut>Proposal ready: ${esc(r.proposal.verification)}.</span>`:''}</p>`).join('')}</div>
 <div class=filters>${['all','verified','human',...diffs].map(x=>`<button class="${f==x?'on':''}" onclick="f='${x}';draw()">${x}</button>`).join('')}</div>${list.map(row).join('')}`}
 draw();</script></html>"""
-out_file.write_text(HTML.replace("%DATA%", data))
-print(out_file, len(rows), "procs")
+if __name__ == "__main__":
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--project", default="corpus")
+    proj = projects.load(ap.parse_args().project)
+    out_file = Path("dashboard.html") if proj.name == "corpus" else proj.results.parent / "dashboard.html"
+    html, n = render(proj)
+    out_file.write_text(html)
+    print(out_file, n, "procs")

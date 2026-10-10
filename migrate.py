@@ -113,7 +113,7 @@ def _migrate(project, proc_dir, meta, base):
     if any(p.get("output") for p in params):
         flags.append(("output_parameters", "Returns values through OUTPUT parameters; a dbt model can only return rows."))
     blocker = flags[0] if flags else None
-    if blocker and (blocker[0] == "no_param_values" or translate.MODE == "reference"):
+    if blocker and (blocker[0] == "no_param_values" or translate.mode() == "reference"):
         return _human(base, *blocker)
 
     nondet = bool(blocker and blocker[0] == "nondeterministic")
@@ -121,7 +121,7 @@ def _migrate(project, proc_dir, meta, base):
     if problem and problem[0] == "no_output":
         return _human(base, *problem)
     blocker = blocker or problem
-    if blocker and translate.MODE == "reference":
+    if blocker and translate.mode() == "reference":
         return _human(base, *blocker)
 
     dbt_runner.write_sources_yml([project.source_name(t) for t in base_sources])
@@ -150,7 +150,7 @@ def _migrate(project, proc_dir, meta, base):
                 **({"dbt_vars": {p["name"][1:]: dbt_runner.var_text(v) for p in params if not p["output"]
                                  for v in [_with_defaults(param_sets[0], params).get(p["name"])]}} if mode == "vars" else {}),
                 "history": history, **extra}
-    if sql is None and translate.MODE == "reference":
+    if sql is None and translate.mode() == "reference":
         return {**_human(base, "no_translation", "Translator produced no model.", history), **extra}
     if history and history[-1]["status"] == "not_filterable":
         why = history[-1]["detail"].split(":", 1)[-1].strip()
@@ -183,7 +183,7 @@ def _attempts(project, proc_dir, meta, proc_sql, schema, expected, param_sets, p
         explanation = explanation or t["explanation"]
         extra = {"explanation": explanation, "llm_calls": calls, "cost_usd": round(sum(c["cost_usd"] for c in calls), 6)}
         if t["sql"] is None:
-            if translate.MODE == "reference":
+            if translate.mode() == "reference":
                 break
             history.append({"attempt": attempt, "sql": "", "status": "bad_response", "detail": t["error"]})
             continue

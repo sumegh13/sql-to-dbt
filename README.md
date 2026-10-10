@@ -1,5 +1,7 @@
 # sql-to-dbt
 
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/sumegh13/sql-to-dbt)
+
 An agent that migrates legacy SQL Server stored procedures to dbt models, and **proves each migration correct**. It runs the original procedure and the new model on the same data, compares the outputs row by row, and debugs and retries when they differ.
 
 On the bundled 50-procedure corpus: **47 of 50 migrated and verified equivalent; 3 need a human, with the reason and a reviewed proposal for each.** About 2,900 rows were compared across 4 datasets, and a full run costs about $0.05 in Claude Haiku calls.
@@ -27,6 +29,18 @@ T-SQL proc ──► triage ──► Claude translates ──► dbt model
 - **Triage:** dynamic SQL, nondeterminism, writes to source tables, OUTPUT parameters and multiple result sets are flagged for a human. The agent still drafts a proposal, verified as far as the blocker allows.
 - **Sandboxed:** generated SQL runs in DuckDB with file and network access off, after a guard that allows only a single SELECT.
 
+## Try it in your browser
+
+Click **Open in GitHub Codespaces** above. GitHub starts the app and a SQL Server for you in the cloud, on your own Codespaces free monthly hours, and opens the app in a browser tab when it's ready (a few minutes on first launch). From there:
+
+1. Upload a folder or .zip of `.sql` scripts, paste a GitHub repo URL, or connect to a SQL Server.
+2. Paste your Anthropic API key, or save it once as a Codespaces secret named `ANTHROPIC_API_KEY`.
+3. Watch each procedure migrate, then open the dashboard or download the dbt project.
+
+Any script layout works: SSMS "Generate Scripts" output, one procedure per file, or mixed files. Include the `CREATE TABLE` scripts for the tables your procedures use. If you include `INSERT` scripts, they are used as test data; otherwise test data is generated from the table definitions. A SQL Server connection is read-only and must be reachable from the Codespace.
+
+Stop the Codespace when you're done (GitHub stops idle ones automatically) so it doesn't use your free hours.
+
 ## Quick start
 
 Requires Docker, [uv](https://docs.astral.sh/uv/) and an Anthropic API key.
@@ -40,6 +54,8 @@ uv run python run_all.py                   # migrate + verify the 50-proc corpus
 uv run python dashboard.py                 # dashboard.html
 uv run python export.py                    # standalone dbt project in out/corpus/
 ```
+
+For the web app locally: `uv run python -m app`, then open http://localhost:8000.
 
 `TRANSLATOR=reference` runs offline with the hand-written reference models instead of Claude. `CLAUDE_MODEL` picks the model (default `claude-haiku-5-5`).
 
@@ -90,3 +106,6 @@ See `projects/example/` for a worked example: parameters, a TOP-N procedure with
 | `harness/intake.py` | builds a user project: introspection, data synthesis, parameter derivation |
 | `corpus/` | 50-procedure corpus specs and the dataset generator |
 | `export.py`, `dashboard.py` | dbt project export and HTML dashboard |
+| `app/` | web app: upload / GitHub / SQL Server intake, job queue, live progress |
+| `harness/ingest.py` | sorts arbitrary `.sql` scripts into schema, data and procedures; reads live SQL Server catalogs |
+| `.devcontainer/` | GitHub Codespaces / dev container setup (app + SQL Server) |

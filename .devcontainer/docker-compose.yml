@@ -1,0 +1,18 @@
+# Dev container / GitHub Codespaces: the app container plus the legacy SQL Server it runs procedures against.
+services:
+  app:
+    image: mcr.microsoft.com/devcontainers/python:3.11-bookworm
+    volumes:
+      - ../..:/workspaces:cached
+    command: sleep infinity
+    depends_on:
+      - mssql
+
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    platform: linux/amd64
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "Legacy_Pass123"
+      MSSQL_PID: Developer   # free for development and testing, which is what a Codespace is
+    restart: unless-stopped

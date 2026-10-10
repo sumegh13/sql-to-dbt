@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Migration run</title>
+<style>
+:root{--bg:#fafaf7;--fg:#1c1c1a;--mut:#6b6b66;--card:#fff;--line:#e4e3dc;--ok:#1a7f4b;--okbg:#e3f3ea;--warn:#b4540a;--warnbg:#fbeadb;--code:#f3f2ec;--acc:#1c1c1a;--accfg:#fafaf7;--err:#b42318;--errbg:#fdecea}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141413;--fg:#ecebe4;--mut:#9a9990;--card:#1d1d1b;--line:#2f2f2b;--ok:#4cc38a;--okbg:#17301f;--warn:#f0a35e;--warnbg:#3a2615;--code:#242421;--acc:#ecebe4;--accfg:#141413;--err:#ff8a80;--errbg:#3a1a17}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif}
+main{max-width:860px;margin:0 auto;padding:32px 16px}
+a{color:inherit}.back{color:var(--mut);font-size:13px;text-decoration:none}
+h1{font-size:1.7rem;margin:8px 0 4px;overflow-wrap:anywhere}.sub{color:var(--mut);margin:0 0 20px}
+.steps{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.step{font-size:13px;padding:3px 10px;border-radius:12px;background:var(--code);color:var(--mut)}
+.step.cur{background:var(--acc);color:var(--accfg)}.step.past{background:var(--okbg);color:var(--ok)}
+.bar{display:flex;height:10px;border-radius:5px;overflow:hidden;background:var(--line);margin:4px 0 6px}.bar i{display:block;transition:width .4s}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:16px}
+.card h2{font-size:1rem;margin:0 0 8px}
+.actions{display:flex;gap:10px;flex-wrap:wrap}
+.btn{font:inherit;display:inline-block;border:1px solid var(--line);background:var(--card);color:var(--fg);padding:9px 16px;border-radius:8px;text-decoration:none}
+.primary{background:var(--acc);color:var(--accfg);border-color:var(--acc);font-weight:600}
+.proc{display:flex;gap:10px;align-items:center;padding:7px 0;border-top:1px solid var(--line);flex-wrap:wrap}.proc:first-child{border-top:0}
+.proc b{font-weight:600;overflow-wrap:anywhere}
+.pill{font-size:12px;font-weight:600;padding:1px 9px;border-radius:10px;background:var(--code);color:var(--mut);white-space:nowrap}
+.pill.verified{background:var(--okbg);color:var(--ok)}.pill.needs_human{background:var(--warnbg);color:var(--warn)}
+.pill.error{background:var(--errbg);color:var(--err)}.pill.running{background:var(--acc);color:var(--accfg)}
+.err{background:var(--errbg);color:var(--err);border-radius:10px;padding:12px 14px;margin-bottom:16px;overflow-wrap:anywhere}
+.warn li{margin:3px 0;overflow-wrap:anywhere}.mut{color:var(--mut);font-size:13px}.sp{flex:1}
+pre{background:var(--code);padding:10px;border-radius:8px;font-size:12px;max-height:220px;overflow:auto;margin:0;white-space:pre-wrap}
+</style>
+</head>
+<body>
+<main>
+<a class="back" href="/">&larr; New migration</a>
+<h1 id="title">Migration run</h1>
+<p class="sub" id="sub">Loading...</p>
+<div class="steps" id="steps"></div>
+<div id="error"></div>
+<div id="done"></div>
+<div class="card" id="progress" style="display:none">
+  <h2 id="ptitle">Procedures</h2>
+  <div class="bar"><i id="bok" style="background:var(--ok)"></i><i id="bhu" style="background:var(--warn)"></i><i id="ber" style="background:var(--err)"></i></div>
+  <div class="mut" id="pcount" style="margin-bottom:8px"></div>
+  <div id="procs"></div>
+</div>
+<div class="card" id="ingest" style="display:none"><h2>What was found</h2><div id="ingestBody"></div></div>
+<div class="card"><h2>Log</h2><pre id="log"></pre></div>
+</main>
+<script>
+const id = location.pathname.split('/').pop();
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const STEPS = [['queued','Queued'],['ingesting','Reading sources'],['building','Building test data'],['migrating','Migrating'],['exporting','Exporting dbt project'],['done','Done']];
+const LABEL = {verified:'verified', needs_human:'needs human', error:'error', running:'running', pending:'pending'};
+const SRC = {upload:'Uploaded files', github:'GitHub', sqlserver:'SQL Server'};
+const REASON = {mutates_source:'Changes source tables', dynamic_sql:'Dynamic SQL', nondeterministic:'Nondeterministic', external_side_effect:'External side effect',
+  calls_other_proc:'Calls another procedure', output_parameters:'OUTPUT parameters', multiple_result_sets:'Multiple result sets', no_output:'Only changes data',
+  no_param_values:'Needs test parameter values', parameter_changes_grain:'Parameters change aggregation', unresolved_diff:'Outputs still differ',
+  no_translation:'No translation', harness_error:'Could not run'};
+
+async function tick() {
+  let st;
+  try { st = await (await fetch('/api/jobs/' + id)).json(); } catch { return setTimeout(tick, 3000); }
+  const o = st.options || {};
+  $('#title').textContent = st.source === 'github' ? o.github_url : st.source === 'sqlserver' ? `${o.host} / ${o.database}` : SRC.upload;
+  $('#sub').textContent = (st.source === 'upload' ? `${o.files} file${o.files === 1 ? '' : 's'}` : SRC[st.source] || st.source) + ` · started ${new Date(st.created * 1000).toLocaleString()}`;
+  const cur = STEPS.findIndex(s => s[0] === st.state);
+  $('#steps').innerHTML = STEPS.map(([k, l], i) => `<span class="step ${st.state === 'failed' ? (i < Math.max(cur,0) ? 'past' : '') : i < cur ? 'past' : i === cur ? 'cur' : ''}">${l}</span>`).join('');
+
+  if (st.state === 'failed') $('#error').innerHTML = `<div class="err"><b>This run failed.</b> ${esc(st.error)}</div>`;
+
+  const ps = st.procs || [];
+  if (ps.length) {
+    $('#progress').style.display = 'block';
+    const n = k => ps.filter(p => p.status === k).length, pct = k => (100 * n(k) / ps.length) + '%';
+    $('#bok').style.width = pct('verified'); $('#bhu').style.width = pct('needs_human'); $('#ber').style.width = pct('error');
+    const finished = ps.filter(p => !['pending','running'].includes(p.status)).length;
+    $('#pcount').textContent = `${finished} of ${ps.length} done · ${n('verified')} verified · ${n('needs_human')} need a human` + (n('error') ? ` · ${n('error')} errors` : '');
+    $('#procs').innerHTML = ps.map(p => `<div class="proc"><span class="pill ${esc(p.status)}">${esc(LABEL[p.status] || p.status)}</span><b>${esc(p.name)}</b><span class="sp"></span><span class="mut">${esc(REASON[p.reason_category] || p.reason_category || '')}</span></div>`).join('');
+  }
+
+  const ig = st.ingest;
+  if (ig) {
+    $('#ingest').style.display = 'block';
+    const items = [];
+    const miss = Object.entries(ig.procs_referencing_unknown_tables || {});
+    if (miss.length) items.push(`<li><b>${miss.length} procedure(s) use tables with no CREATE TABLE script</b>, so they will fail to run: ${miss.slice(0, 8).map(([p, ts]) => `${esc(p)} (${ts.map(esc).join(', ')})`).join('; ')}</li>`);
+    if ((ig.schema_failed || []).length) items.push(`<li><b>${ig.schema_failed.length} schema statement(s) could not be created</b>: ${ig.schema_failed.slice(0, 5).map(([s, e]) => `${esc(s)} (${esc(e)})`).join('; ')}</li>`);
+    if ((ig.duplicates || []).length) items.push(`<li>Defined more than once (last definition used): ${ig.duplicates.map(esc).join(', ')}</li>`);
+    $('#ingestBody').innerHTML = `<p style="margin:0 0 6px">${ig.procedures} procedures, ${ig.tables_and_views} tables and views` +
+      (ig.data_statements ? `, ${ig.data_statements} data scripts used as test data` : ', test data synthesized from the table definitions') + '.</p>' +
+      (items.length ? `<ul class="warn" style="margin:6px 0 0;padding-left:18px">${items.join('')}</ul>` : '');
+  }
+
+  if (st.state === 'done') {
+    const s = st.summary || {};
+    $('#done').innerHTML = `<div class="card"><h2>${s.verified} of ${s.total} procedures migrated and verified equivalent</h2>
+      <p class="mut" style="margin:0 0 12px">${s.total - s.verified} need a human · LLM cost $${(s.cost_usd || 0).toFixed(3)} · exported dbt project ${st.dbt_build_ok ? 'passes <code>dbt build</code>' : 'did <b>not</b> pass <code>dbt build</code>; see the log'}</p>
+      <div class="actions"><a class="btn primary" href="/jobs/${id}/dashboard" target="_blank" rel="noopener">Open dashboard</a><a class="btn" href="/jobs/${id}/download">Download dbt project (.zip)</a></div></div>`;
+  }
+  $('#log').textContent = (st.log || []).join('\n') || 'Waiting...';
+  if (!['done', 'failed'].includes(st.state)) setTimeout(tick, 2000);
+}
+tick();
+</script>
+</body>
+</html>

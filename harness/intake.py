@@ -326,9 +326,12 @@ def build(root: Path):
         variants = ["base"]
         data_file = root / "data.sql"
         if data_file.exists():
+            # user data or sampled rows may break FKs (a sample of orders whose customers weren't sampled)
+            nocheck = "\n".join(f"ALTER TABLE {t} NOCHECK CONSTRAINT ALL;" for t in _topo(tables))
+            cur.execute(nocheck)
             for b in batches(data_file.read_text()):
                 cur.execute(b)
-            base_sql = schema_sql.rstrip() + "\nGO\n" + data_file.read_text()
+            base_sql = schema_sql.rstrip() + "\nGO\n" + nocheck + "\nGO\n" + data_file.read_text()
             print("base: data.sql")
         else:
             accepted = _synthesize(cur, tables, 1, False, {})

@@ -8,10 +8,14 @@ from migrate import migrate
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--project", default="corpus", help="'corpus' (default) or a projects/<name> folder")
+ap.add_argument("--results", help="write results here instead of the project's results folder (e.g. for test runs)")
 ap.add_argument("filters", nargs="*")
 args = ap.parse_args()
 
 proj = projects.load(args.project)
+if args.results:
+    from pathlib import Path
+    proj.results = Path(args.results)
 dirs = sorted(d for d in proj.procs.iterdir() if d.is_dir())
 if args.filters:
     dirs = [d for d in dirs if any(a in d.name for a in args.filters)]

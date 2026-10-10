@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SQL to dbt</title>
+<style>
+:root{--bg:#fafaf7;--fg:#1c1c1a;--mut:#6b6b66;--card:#fff;--line:#e4e3dc;--ok:#1a7f4b;--okbg:#e3f3ea;--warn:#b4540a;--warnbg:#fbeadb;--code:#f3f2ec;--acc:#1c1c1a;--accfg:#fafaf7;--err:#b42318;--errbg:#fdecea}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141413;--fg:#ecebe4;--mut:#9a9990;--card:#1d1d1b;--line:#2f2f2b;--ok:#4cc38a;--okbg:#17301f;--warn:#f0a35e;--warnbg:#3a2615;--code:#242421;--acc:#ecebe4;--accfg:#141413;--err:#ff8a80;--errbg:#3a1a17}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif}
+main{max-width:760px;margin:0 auto;padding:40px 16px}
+h1{font-size:1.9rem;margin:0 0 6px}.sub{color:var(--mut);margin:0 0 28px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px;margin-bottom:20px}
+.tabs{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap}
+.tabs button{font:inherit;border:1px solid var(--line);background:transparent;color:var(--fg);padding:6px 14px;border-radius:18px;cursor:pointer}
+.tabs button.on{background:var(--acc);color:var(--accfg);border-color:var(--acc)}
+.pane{display:none}.pane.on{display:block}
+label{display:block;font-size:13px;color:var(--mut);margin:12px 0 4px}
+input[type=text],input[type=password],input[type=number]{width:100%;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg)}
+.row{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,1fr);gap:10px}
+.drop{border:2px dashed var(--line);border-radius:10px;padding:22px;text-align:center;color:var(--mut)}
+.drop.over{border-color:var(--ok);color:var(--fg)}
+.drop .pick{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:10px}
+.btn{font:inherit;display:inline-block;border:1px solid var(--line);background:var(--card);color:var(--fg);padding:7px 14px;border-radius:8px;cursor:pointer;text-decoration:none}
+.primary{background:var(--acc);color:var(--accfg);border-color:var(--acc);font-weight:600;padding:10px 18px}
+.primary:disabled{opacity:.5;cursor:default}
+.hint{font-size:13px;color:var(--mut);margin:8px 0 0}
+.err{background:var(--errbg);color:var(--err);border-radius:8px;padding:10px 12px;margin-top:14px;display:none}
+.jobs a{display:flex;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--line);color:inherit;text-decoration:none;flex-wrap:wrap}
+.jobs a:first-child{border-top:0}
+.pill{font-size:12px;font-weight:600;padding:1px 9px;border-radius:10px;background:var(--code);color:var(--mut)}
+.pill.done{background:var(--okbg);color:var(--ok)}.pill.failed{background:var(--errbg);color:var(--err)}
+.sp{flex:1}.mut{color:var(--mut);font-size:13px}
+@media(max-width:560px){.row{grid-template-columns:minmax(0,1fr)}}
+</style>
+</head>
+<body>
+<main>
+<h1>Migrate stored procedures to dbt</h1>
+<p class="sub">Bring your T-SQL procedures and table definitions. Each one is translated to a dbt model, run next to the original on the same data, and only marked verified when every row matches.</p>
+
+<form id="f" class="card" autocomplete="off">
+  <div class="tabs" role="tablist">
+    <button type="button" class="on" data-src="upload">Upload folder or .zip</button>
+    <button type="button" data-src="github">GitHub repo</button>
+    <button type="button" data-src="sqlserver">SQL Server</button>
+  </div>
+
+  <div class="pane on" data-pane="upload">
+    <div class="drop" id="drop">
+      <div id="dropText">Drop a folder or a .zip here</div>
+      <div class="pick">
+        <label class="btn" style="margin:0;color:inherit">Choose folder<input type="file" id="dir" webkitdirectory multiple hidden></label>
+        <label class="btn" style="margin:0;color:inherit">Choose .zip<input type="file" id="zip" accept=".zip" hidden></label>
+      </div>
+    </div>
+    <p class="hint">Any layout works: SSMS "Generate Scripts" output, one procedure per file, or mixed scripts. Include the CREATE TABLE scripts for the tables your procedures use. INSERT scripts are used as test data when present.</p>
+  </div>
+
+  <div class="pane" data-pane="github">
+    <label for="gh">Repository or folder URL</label>
+    <input type="text" id="gh" name="github_url" placeholder="https://github.com/owner/repo/tree/main/sql">
+    <label for="ght">Access token (private repos only)</label>
+    <input type="password" id="ght" name="github_token" placeholder="github_pat_...">
+    <p class="hint">A fine-grained token with read-only "Contents" access to that repo is enough.</p>
+  </div>
+
+  <div class="pane" data-pane="sqlserver">
+    <div class="row">
+      <div><label for="host">Host</label><input type="text" id="host" name="host" placeholder="myserver.database.windows.net"></div>
+      <div><label for="port">Port</label><input type="number" id="port" name="port" value="1433"></div>
+    </div>
+    <label for="db">Database</label><input type="text" id="db" name="database">
+    <div class="row">
+      <div><label for="user">User</label><input type="text" id="user" name="user"></div>
+      <div><label for="pw">Password</label><input type="password" id="pw" name="password"></div>
+    </div>
+    <label for="rows">Sample rows per table as test data (0 = synthesize all test data)</label>
+    <input type="number" id="rows" name="sample_rows" value="50" min="0" max="1000">
+    <p class="hint">Read-only: reads procedure and table definitions and samples rows. Nothing is written to your database. Use a read-only login. The server must be reachable from where this app runs.</p>
+  </div>
+
+  <label for="key">Anthropic API key</label>
+  <input type="password" id="key" name="anthropic_key" placeholder="sk-ant-... (leave empty to use the server's key)">
+  <p class="hint">Used for this job only and never saved. A 50-procedure run costs about $0.05 with Claude Haiku.</p>
+
+  <div style="margin-top:18px"><button class="btn primary" id="go" type="submit">Start migration</button></div>
+  <div class="err" id="err"></div>
+</form>
+
+<div class="card">
+  <h2 style="font-size:1rem;margin:0 0 6px">Previous runs</h2>
+  <div class="jobs" id="jobs"><span class="mut">None yet.</span></div>
+</div>
+</main>
+<script>
+let source = 'upload', files = [];
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
+  source = b.dataset.src;
+  document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x === b));
+  document.querySelectorAll('.pane').forEach(p => p.classList.toggle('on', p.dataset.pane === source));
+});
+
+function setFiles(list, label) {
+  files = list;
+  $('#dropText').textContent = files.length ? label : 'Drop a folder or a .zip here';
+}
+$('#dir').onchange = e => {
+  const fs = [...e.target.files].filter(f => !f.webkitRelativePath.split('/').some(p => p.startsWith('.')));
+  setFiles(fs.map(f => [f, f.webkitRelativePath || f.name]), `${fs.length} files selected`);
+};
+$('#zip').onchange = e => { const f = e.target.files[0]; if (f) setFiles([[f, f.name]], f.name); };
+
+// drag and drop: folders are walked with the entries API
+const drop = $('#drop');
+drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
+drop.ondragleave = () => drop.classList.remove('over');
+drop.ondrop = async e => {
+  e.preventDefault(); drop.classList.remove('over');
+  const out = [];
+  const walk = (entry, path) => new Promise(res => {
+    if (entry.name.startsWith('.')) return res();
+    if (entry.isFile) entry.file(f => { out.push([f, path + entry.name]); res(); });
+    else { const r = entry.createReader(); const all = [];
+      const read = () => r.readEntries(async es => { if (!es.length) { for (const c of all) await walk(c, path + entry.name + '/'); res(); } else { all.push(...es); read(); } });
+      read(); }
+  });
+  for (const it of e.dataTransfer.items) { const en = it.webkitGetAsEntry && it.webkitGetAsEntry(); if (en) await walk(en, ''); }
+  setFiles(out, out.length === 1 ? out[0][1] : `${out.length} files selected`);
+};
+
+$('#f').onsubmit = async e => {
+  e.preventDefault();
+  const fd = new FormData();
+  fd.append('source', source);
+  fd.append('anthropic_key', $('#key').value);
+  if (source === 'upload') {
+    if (!files.length) return showErr('Choose a folder or a .zip file first.');
+    files.forEach(([f, path]) => fd.append('files', f, path));
+  } else {
+    document.querySelectorAll(`[data-pane="${source}"] input`).forEach(i => fd.append(i.name, i.value));
+  }
+  $('#go').disabled = true; $('#go').textContent = 'Starting...'; $('#err').style.display = 'none';
+  try {
+    const r = await fetch('/api/jobs', {method: 'POST', body: fd});
+    const body = await r.json();
+    if (!r.ok) throw new Error(body.detail || r.statusText);
+    location.href = '/jobs/' + body.id;
+  } catch (err) { showErr(err.message); $('#go').disabled = false; $('#go').textContent = 'Start migration'; }
+};
+function showErr(m) { const el = $('#err'); el.textContent = m; el.style.display = 'block'; }
+
+const SRC = {upload: 'Upload', github: 'GitHub', sqlserver: 'SQL Server'};
+fetch('/api/jobs').then(r => r.json()).then(js => {
+  if (!js.length) return;
+  $('#jobs').innerHTML = js.map(j => {
+    const what = j.source === 'github' ? j.options?.github_url : j.source === 'sqlserver' ? `${j.options?.host}/${j.options?.database}` : `${j.options?.files} file${j.options?.files === 1 ? '' : 's'}`;
+    const res = j.summary ? `${j.summary.verified} of ${j.summary.total} verified` : (j.state === 'failed' ? 'failed' : '');
+    return `<a href="/jobs/${esc(j.id)}"><span class="pill ${esc(j.state)}">${esc(j.state)}</span><b>${esc(SRC[j.source] || j.source)}</b><span class="mut">${esc(what)}</span><span class="sp"></span><span class="mut">${esc(res)} · ${new Date(j.created * 1000).toLocaleString()}</span></a>`;
+  }).join('');
+});
+</script>
+</body>
+</html>

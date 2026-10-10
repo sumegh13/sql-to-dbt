@@ -15,13 +15,13 @@
   "edge": 7
  },
  "param_sets": 1,
- "model_sql": "WITH valid_orders AS (\n    SELECT customer_id, amount\n    FROM {{ source('legacy', 'orders') }}\n    WHERE status IS NOT NULL\n      AND UPPER(RTRIM(status)) <> 'CANCELLED'\n),\norder_agg AS (\n    SELECT\n        customer_id,\n        COUNT(*) AS order_count,\n        SUM(amount) AS total_amount\n    FROM valid_orders\n    GROUP BY customer_id\n),\nbase AS (\n    SELECT\n        c.customer_id,\n        c.customer_name,\n        COALESCE(a.order_count, 0) AS order_count,\n        CAST(COALESCE(a.total_amount, 0) AS DECIMAL(18,2)) AS total_amount\n    FROM {{ source('legacy', 'customers') }} c\n    LEFT JOIN order_agg a\n        ON a.customer_id = c.customer_id\n)\nSELECT\n    customer_id,\n    customer_name,\n    CAST(order_count AS INTEGER) AS order_count,\n    total_amount,\n    CASE\n        WHEN total_amount >= 1000 THEN 'gold'\n        WHEN total_amount >= 500 THEN 'silver'\n        ELSE 'bronze'\n    END AS tier\nFROM base",
+ "model_sql": "WITH order_agg AS (\n    SELECT\n        customer_id,\n        COUNT(*) AS order_count,\n        SUM(amount) AS total_amount\n    FROM {{ source('legacy', 'orders') }}\n    WHERE status IS NOT NULL\n      AND lower(rtrim(status)) <> 'cancelled'\n    GROUP BY customer_id\n),\ntotals AS (\n    SELECT\n        c.customer_id,\n        c.customer_name,\n        CAST(COALESCE(o.order_count, 0) AS INTEGER) AS order_count,\n        CAST(COALESCE(o.total_amount, 0) AS DECIMAL(18,2)) AS total_amount\n    FROM {{ source('legacy', 'customers') }} c\n    LEFT JOIN order_agg o\n        ON c.customer_id = o.customer_id\n)\nSELECT\n    customer_id,\n    customer_name,\n    order_count,\n    total_amount,\n    CASE\n        WHEN total_amount >= 1000 THEN 'gold'\n        WHEN total_amount >= 500 THEN 'silver'\n        ELSE 'bronze'\n    END AS tier\nFROM totals",
  "param_filter": null,
  "param_mode": "filter",
  "history": [
   {
    "attempt": 1,
-   "sql": "WITH valid_orders AS (\n    SELECT customer_id, amount\n    FROM {{ source('legacy', 'orders') }}\n    WHERE status IS NOT NULL\n      AND UPPER(RTRIM(status)) <> 'CANCELLED'\n),\norder_agg AS (\n    SELECT\n        customer_id,\n        COUNT(*) AS order_count,\n        SUM(amount) AS total_amount\n    FROM valid_orders\n    GROUP BY customer_id\n),\nbase AS (\n    SELECT\n        c.customer_id,\n        c.customer_name,\n        COALESCE(a.order_count, 0) AS order_count,\n        CAST(COALESCE(a.total_amount, 0) AS DECIMAL(18,2)) AS total_amount\n    FROM {{ source('legacy', 'customers') }} c\n    LEFT JOIN order_agg a\n        ON a.customer_id = c.customer_id\n)\nSELECT\n    customer_id,\n    customer_name,\n    CAST(order_count AS INTEGER) AS order_count,\n    total_amount,\n    CASE\n        WHEN total_amount >= 1000 THEN 'gold'\n        WHEN total_amount >= 500 THEN 'silver'\n        ELSE 'bronze'\n    END AS tier\nFROM base",
+   "sql": "WITH order_agg AS (\n    SELECT\n        customer_id,\n        COUNT(*) AS order_count,\n        SUM(amount) AS total_amount\n    FROM {{ source('legacy', 'orders') }}\n    WHERE status IS NOT NULL\n      AND lower(rtrim(status)) <> 'cancelled'\n    GROUP BY customer_id\n),\ntotals AS (\n    SELECT\n        c.customer_id,\n        c.customer_name,\n        CAST(COALESCE(o.order_count, 0) AS INTEGER) AS order_count,\n        CAST(COALESCE(o.total_amount, 0) AS DECIMAL(18,2)) AS total_amount\n    FROM {{ source('legacy', 'customers') }} c\n    LEFT JOIN order_agg o\n        ON c.customer_id = o.customer_id\n)\nSELECT\n    customer_id,\n    customer_name,\n    order_count,\n    total_amount,\n    CASE\n        WHEN total_amount >= 1000 THEN 'gold'\n        WHEN total_amount >= 500 THEN 'silver'\n        ELSE 'bronze'\n    END AS tier\nFROM totals",
    "param_filter": null,
    "param_mode": "filter",
    "status": "match",
@@ -31,16 +31,16 @@
    }
   }
  ],
- "explanation": "This procedure builds a per-customer summary: for every customer, it counts their orders and totals the order amounts, excluding cancelled orders. Each customer gets a tier of gold (total of at least 1000), silver (at least 500), or bronze (otherwise). Customers with no qualifying orders still appear, with a count of 0, a total of 0, and bronze tier.",
+ "explanation": "For every customer, the procedure counts their orders whose status is not 'cancelled' and sums those order amounts. It then assigns a tier of gold (1000 or more), silver (500 or more), or bronze, based on that total. Customers with no qualifying orders still appear, with a count of 0, a total of 0, and bronze tier.",
  "llm_calls": [
   {
    "model": "claude-haiku-5-5",
    "input_tokens": 2304,
-   "output_tokens": 2822,
+   "output_tokens": 1753,
    "cache_write_tokens": 0,
    "cache_read_tokens": 0,
-   "cost_usd": 0.001641
+   "cost_usd": 0.001107
   }
  ],
- "cost_usd": 0.001641
+ "cost_usd": 0.001107
 }
