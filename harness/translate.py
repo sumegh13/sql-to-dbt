@@ -55,7 +55,7 @@ Keep any columns the filter needs in the model output, even if they are not outp
 output columns after filtering. Mirror the procedure's handling of NULL parameters (e.g. "@X IS NULL OR col = @X").
 If the procedure's rows cannot be expressed as a row filter over one parameter-free model (e.g. parameters restrict
 which rows feed an aggregate, so the totals themselves depend on the parameter values), do not guess: output
-<param_filter>NOT_FILTERABLE: one sentence on why</param_filter> with your best model, and the harness escalates to a human.
+<param_filter>NOT_FILTERABLE: one sentence on why</param_filter>; the harness then asks you for a dbt-vars version.
 Parameters with defaults may be omitted by callers; the filter sees the default value then.
 
 Respond in exactly this format:
@@ -96,7 +96,14 @@ def _blocker_text(blocker, small_tables):
             "<not_migrated>procedure behaviour your model does not reproduce (side effects, writes to other tables), or 'none'</not_migrated>")
 
 
-def _claude(proc_sql, schema, output_columns, history, blocker=None, small_tables=None, params=None, source_name=None):
+VARS_MODE = """Parameter mode: dbt vars. A row filter cannot express this procedure, so pass the parameters as dbt vars instead.
+Reference parameter @X as {{ var('X') }} (name without @). A var renders the parameter's plain text, e.g. 2024-01-02 or 5,
+and a NULL parameter renders as the empty string. Write it like a literal: cast('{{ var("StartDate") }}' as date),
+cast(nullif('{{ var("Category") }}', '') as varchar); numbers may be cast the same way. Do not output a <param_filter> block."""
+
+
+def _claude(proc_sql, schema, output_columns, history, blocker=None, small_tables=None, params=None, source_name=None,
+            param_mode="filter"):
     import anthropic
     client = anthropic.Anthropic()
     source_name = source_name or (lambda t: t.rpartition(".")[2])
@@ -104,7 +111,8 @@ def _claude(proc_sql, schema, output_columns, history, blocker=None, small_table
               f"Output columns, in order: {', '.join(output_columns)}\n\n")
     if params:
         prompt += ("Parameters: " + ", ".join(f"{p['name']} {p['type']}" + (f" = {p['default']}" if p.get("default") is not None else "")
-                                              for p in params) + ". Include a <param_filter> block.\n\n")
+                                              for p in params)
+                   + (". Include a <param_filter> block.\n\n" if param_mode == "filter" else f".\n{VARS_MODE}\n\n"))
     prompt += f"Procedure:\n<tsql>\n{proc_sql}\n</tsql>"
     if blocker:
         prompt += _blocker_text(blocker, small_tables or {})
@@ -139,7 +147,7 @@ def _claude(proc_sql, schema, output_columns, history, blocker=None, small_table
 
 def translate(proc_dir: Path, proc_sql: str, schema: dict, output_columns: list[str], history: list[dict],
               blocker: tuple[str, str] | None = None, small_tables: dict | None = None,
-              params: list[dict] | None = None, source_name=None) -> dict:
+              params: list[dict] | None = None, source_name=None, param_mode: str = "filter") -> dict:
     """Returns {"sql", "explanation", "usage", "error"} (+ "assumptions", "questions", "not_migrated" when blocker is set).
     blocker = (category, reason) from triage: ask for a proposal for human review instead of a plain translation."""
     if MODE == "reference":
@@ -147,4 +155,4 @@ def translate(proc_dir: Path, proc_sql: str, schema: dict, output_columns: list[
         pf = proc_dir / "reference_filter.txt"
         return {"sql": f.read_text() if f.exists() else None, "param_filter": pf.read_text().strip() if pf.exists() else None,
                 "explanation": None, "usage": None, "error": None}
-    return _claude(proc_sql, schema, output_columns, history, blocker, small_tables, params, source_name)
+    return _claude(proc_sql, schema, output_columns, history, blocker, small_tables, params, source_name, param_mode)

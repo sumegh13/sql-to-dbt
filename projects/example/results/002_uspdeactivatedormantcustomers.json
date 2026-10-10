@@ -6,35 +6,55 @@
  "status": "needs_human",
  "reason_category": "mutates_source",
  "reason": "Modifies existing tables in place (dbo.customers); a dbt model can only build new relations, so this needs a design decision (incremental/snapshot/ops job).",
- "attempts": 1,
+ "attempts": 2,
  "history": [
   {
    "attempt": 1,
-   "sql": "WITH last_orders AS (\n    SELECT\n        CustomerID,\n        MAX(OrderDate) AS last_order_date\n    FROM {{ source('legacy', 'Sales_Orders') }}\n    GROUP BY CustomerID\n)\nSELECT\n    c.CustomerID,\n    c.CustomerName,\n    c.Status,\n    lo.last_order_date\nFROM {{ source('legacy', 'Customers') }} c\nLEFT JOIN last_orders lo\n    ON lo.CustomerID = c.CustomerID",
-   "param_filter": "NOT_FILTERABLE: the Status output value depends on @AsOfDate, because customers with no order in the 180 days before that date are reported as 'inactive' even when their stored status is 'active', so a row filter over stored columns cannot reproduce the output values.",
+   "sql": "WITH last_orders AS (\n    SELECT\n        o.CustomerID,\n        MAX(o.OrderDate) AS last_order_date\n    FROM {{ source('legacy', 'Sales_Orders') }} o\n    GROUP BY o.CustomerID\n)\nSELECT\n    c.CustomerID,\n    c.CustomerName,\n    c.Status,\n    lo.last_order_date\nFROM {{ source('legacy', 'Customers') }} c\nLEFT JOIN last_orders lo\n    ON lo.CustomerID = c.CustomerID",
+   "param_filter": "NOT_FILTERABLE: The procedure's output Status is 'inactive' for dormant customers only because of the UPDATE, so the output value of Status depends on @AsOfDate and cannot be produced by filtering a parameter-free model whose Status column is the raw source value.",
+   "param_mode": "filter",
    "status": "not_filterable",
-   "detail": "NOT_FILTERABLE: the Status output value depends on @AsOfDate, because customers with no order in the 180 days before that date are reported as 'inactive' even when their stored status is 'active', so a row filter over stored columns cannot reproduce the output values."
+   "detail": "NOT_FILTERABLE: The procedure's output Status is 'inactive' for dormant customers only because of the UPDATE, so the output value of Status depends on @AsOfDate and cannot be produced by filtering a parameter-free model whose Status column is the raw source value."
+  },
+  {
+   "attempt": 2,
+   "sql": "WITH flagged AS (\n    SELECT\n        c.CustomerID,\n        c.CustomerName,\n        c.Status,\n        NOT EXISTS (\n            SELECT 1\n            FROM {{ source('legacy', 'Sales_Orders') }} o\n            WHERE o.CustomerID = c.CustomerID\n              AND o.OrderDate >= cast('{{ var(\"AsOfDate\") }}' as date) - 180\n        ) AS is_dormant\n    FROM {{ source('legacy', 'Customers') }} c\n)\nSELECT\n    CustomerID,\n    CustomerName,\n    CASE WHEN is_dormant THEN 'inactive' ELSE Status END AS Status\nFROM flagged\nWHERE is_dormant\n   OR rtrim(lower(Status)) = 'inactive'",
+   "param_filter": null,
+   "param_mode": "vars",
+   "status": "match",
+   "detail": {
+    "runs": 8,
+    "rows": 122
+   }
   }
  ],
- "model_sql": "WITH last_orders AS (\n    SELECT\n        CustomerID,\n        MAX(OrderDate) AS last_order_date\n    FROM {{ source('legacy', 'Sales_Orders') }}\n    GROUP BY CustomerID\n)\nSELECT\n    c.CustomerID,\n    c.CustomerName,\n    c.Status,\n    lo.last_order_date\nFROM {{ source('legacy', 'Customers') }} c\nLEFT JOIN last_orders lo\n    ON lo.CustomerID = c.CustomerID",
+ "model_sql": "WITH flagged AS (\n    SELECT\n        c.CustomerID,\n        c.CustomerName,\n        c.Status,\n        NOT EXISTS (\n            SELECT 1\n            FROM {{ source('legacy', 'Sales_Orders') }} o\n            WHERE o.CustomerID = c.CustomerID\n              AND o.OrderDate >= cast('{{ var(\"AsOfDate\") }}' as date) - 180\n        ) AS is_dormant\n    FROM {{ source('legacy', 'Customers') }} c\n)\nSELECT\n    CustomerID,\n    CustomerName,\n    CASE WHEN is_dormant THEN 'inactive' ELSE Status END AS Status\nFROM flagged\nWHERE is_dormant\n   OR rtrim(lower(Status)) = 'inactive'",
  "proposal": {
-  "model_sql": "WITH last_orders AS (\n    SELECT\n        CustomerID,\n        MAX(OrderDate) AS last_order_date\n    FROM {{ source('legacy', 'Sales_Orders') }}\n    GROUP BY CustomerID\n)\nSELECT\n    c.CustomerID,\n    c.CustomerName,\n    c.Status,\n    lo.last_order_date\nFROM {{ source('legacy', 'Customers') }} c\nLEFT JOIN last_orders lo\n    ON lo.CustomerID = c.CustomerID",
-  "param_filter": "NOT_FILTERABLE: the Status output value depends on @AsOfDate, because customers with no order in the 180 days before that date are reported as 'inactive' even when their stored status is 'active', so a row filter over stored columns cannot reproduce the output values.",
-  "assumptions": "- Status comparisons are case-insensitive and ignore trailing spaces, as in SQL Server's default collation, so the 'inactive' test is lower(rtrim(Status)) = 'inactive'.\n- The NOT EXISTS subquery is equivalent to \"MAX(OrderDate) is NULL or MAX(OrderDate) < @AsOfDate - 180 days\", since OrderDate is a date with no time part.\n- Customers with a NULL CustomerID or no orders have no matching order, so they count as dormant, as they do in the procedure's NOT EXISTS.\n- The UPDATE ran against the Customers table as it stood before the procedure was called, so the model reads the pre-update state.",
-  "questions": "- Should the output be produced by a model that persists the updated Status (a snapshot or an incremental job that actually runs the UPDATE), or is the read-only result set the only thing that must match?\n- Is the Status value in the output meant to be the post-update value ('inactive' for every row returned), and if so, which @AsOfDate should the model be built for?\n- If the procedure is run more than once, or for several as-of dates, should a customer deactivated by one run stay inactive in later runs, and how does that interact with the chosen design?\n- Are there case or whitespace variants of 'inactive' in the source data that the case-insensitive match should treat as equal?",
-  "not_migrated": "- The UPDATE that sets dbo.Customers.Status to 'inactive' is not reproduced. The model is read-only and only builds a new relation, so the persisted status change is lost.\n- The Status column in the model is the stored value, not the post-update value. For customers deactivated by @AsOfDate, the model shows the old status (for example 'active'), while the procedure returns 'inactive'. Matching the output requires a design decision (see the flagged review).\n- The procedure's SET NOCOUNT ON has no equivalent and has no effect on the result set.",
-  "verification": "not verified: not_filterable"
+  "model_sql": "WITH flagged AS (\n    SELECT\n        c.CustomerID,\n        c.CustomerName,\n        c.Status,\n        NOT EXISTS (\n            SELECT 1\n            FROM {{ source('legacy', 'Sales_Orders') }} o\n            WHERE o.CustomerID = c.CustomerID\n              AND o.OrderDate >= cast('{{ var(\"AsOfDate\") }}' as date) - 180\n        ) AS is_dormant\n    FROM {{ source('legacy', 'Customers') }} c\n)\nSELECT\n    CustomerID,\n    CustomerName,\n    CASE WHEN is_dormant THEN 'inactive' ELSE Status END AS Status\nFROM flagged\nWHERE is_dormant\n   OR rtrim(lower(Status)) = 'inactive'",
+  "param_filter": null,
+  "assumptions": "- The procedure's result set is the customers whose status is 'inactive' after the UPDATE. Dormant customers get 'inactive' regardless of their prior status.\n- T-SQL's case-insensitive, trailing-space-insensitive comparison of Status with 'inactive' is emulated with rtrim(lower(Status)) = 'inactive'. Leading spaces are not ignored, matching SQL Server.\n- DATEADD(day, -180, @AsOfDate) is equivalent to subtracting 180 from the date in DuckDB.\n- The AsOfDate dbt var is always a valid date, never empty or NULL.\n- CustomerID is unique in dbo.Customers, so each customer produces one output row.\n- Orders with a NULL CustomerID or NULL OrderDate never satisfy the NOT EXISTS match, which matches SQL Server's behaviour.",
+  "questions": "- Should the UPDATE to dbo.Customers be persisted? If so, the model cannot do this by itself. It needs an incremental, snapshot, or ops job design decision.\n- Is the status change meant to be permanent? If yes, a later run would see customers already marked inactive, and the result would differ from a fresh run.\n- What should happen if @AsOfDate is NULL? The legacy procedure would mark everyone inactive, because the date comparison is unknown and no order matches. Should the dbt var handle NULL the same way?\n- Is dbo.Customers guaranteed to have unique CustomerID values? Duplicates would be passed through unchanged.",
+  "not_migrated": "The UPDATE that sets Customers.Status = 'inactive' on dbo.Customers is not reproduced. The model only computes the resulting rows and does not modify the source table. The SELECT output is reproduced in full.",
+  "verification": "output rows match on 8 dataset/parameter runs"
  },
- "explanation": "This procedure marks as 'inactive' every customer who has placed no order in the 180 days before the given as-of date. It then returns all customers whose status is 'inactive', which includes both the newly deactivated customers and any that were already inactive. The procedure's output is the list of customer IDs, names and statuses for those customers.",
+ "explanation": "This procedure marks customers as inactive when they have placed no order in the 180 days before @AsOfDate, and then returns every customer whose status is inactive. Because it runs an UPDATE first, the returned list includes both newly deactivated customers and customers who were already marked inactive. The dbt model below computes each customer's latest order date so the dormancy test can be applied for any as-of date.",
  "llm_calls": [
   {
    "model": "claude-haiku-5-5",
-   "input_tokens": 2022,
-   "output_tokens": 3159,
+   "input_tokens": 2024,
+   "output_tokens": 3233,
    "cache_write_tokens": 0,
    "cache_read_tokens": 0,
-   "cost_usd": 0.001782
+   "cost_usd": 0.001819
+  },
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 2787,
+   "output_tokens": 2892,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.001725
   }
  ],
- "cost_usd": 0.001782
+ "cost_usd": 0.003544
 }

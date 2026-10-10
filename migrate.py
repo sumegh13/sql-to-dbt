@@ -144,8 +144,12 @@ def _migrate(project, proc_dir, meta, base):
         datasets = {}
         for (v, _), n in runs.items():
             datasets[v] = datasets.get(v, 0) + n
+        mode = history[-1].get("param_mode", "filter")
         return {**base, "status": "verified", "attempts": len(history), "rows": sum(runs.values()), "datasets": datasets,
-                "param_sets": len(param_sets), "model_sql": sql, "param_filter": pfilter, "history": history, **extra}
+                "param_sets": len(param_sets), "model_sql": sql, "param_filter": pfilter, "param_mode": mode,
+                **({"dbt_vars": {p["name"][1:]: dbt_runner.var_text(v) for p in params if not p["output"]
+                                 for v in [_with_defaults(param_sets[0], params).get(p["name"])]}} if mode == "vars" else {}),
+                "history": history, **extra}
     if sql is None and translate.MODE == "reference":
         return {**_human(base, "no_translation", "Translator produced no model.", history), **extra}
     if history and history[-1]["status"] == "not_filterable":
@@ -168,8 +172,12 @@ def _attempts(project, proc_dir, meta, proc_sql, schema, expected, param_sets, p
     Returns (ok, sql, param_filter, history, runs, extra, last_translation)."""
     history, sql, pfilter, explanation, calls, t, extra = [], None, None, None, [], {}, {}
     out_cols = expected[(project.variants[0], 0)][0]
-    for attempt in range(1, MAX_ATTEMPTS + 1):
-        t = translate.translate(proc_dir, proc_sql, schema, out_cols, history, blocker, small, params, project.source_name)
+    mode = "filter"
+    for attempt in range(1, MAX_ATTEMPTS + 2):  # +1: a switch to vars mode doesn't use up a debugging attempt
+        if sum(h["status"] != "not_filterable" for h in history) >= MAX_ATTEMPTS:
+            break
+        t = translate.translate(proc_dir, proc_sql, schema, out_cols, history, blocker, small, params, project.source_name,
+                                param_mode=mode)
         if t["usage"]:
             calls.append(t["usage"])
         explanation = explanation or t["explanation"]
@@ -179,23 +187,28 @@ def _attempts(project, proc_dir, meta, proc_sql, schema, expected, param_sets, p
                 break
             history.append({"attempt": attempt, "sql": "", "status": "bad_response", "detail": t["error"]})
             continue
-        sql, pfilter = t["sql"], t.get("param_filter")
-        entry = {"attempt": attempt, "sql": sql, "param_filter": pfilter}
-        if params and not pfilter:
+        sql, pfilter = t["sql"], (t.get("param_filter") if mode == "filter" else None)
+        entry = {"attempt": attempt, "sql": sql, "param_filter": pfilter, "param_mode": mode}
+        if mode == "filter" and pfilter and pfilter.upper().startswith("NOT_FILTERABLE"):
+            history.append({**entry, "status": "not_filterable", "detail": pfilter})
+            mode = "vars"
+            continue
+        if params and mode == "filter" and not pfilter:
             history.append({**entry, "status": "bad_response", "detail": "parameterized procedure but no <param_filter> block"})
             continue
-        if pfilter and pfilter.upper().startswith("NOT_FILTERABLE"):
-            history.append({**entry, "status": "not_filterable", "detail": pfilter})
-            return False, sql, pfilter, history, {}, extra, t
-        _, err = dbt_runner.run_model(meta["slug"], sql)
+        var_names = [p["name"][1:] for p in params if not p["output"]] if mode == "vars" else []
+        base_vars = {n: _with_defaults(param_sets[0], params).get("@" + n) for n in var_names} if mode == "vars" else None
+        _, err = dbt_runner.run_model(meta["slug"], sql, base_vars)
         if err:
             history.append({**entry, "status": "dbt_error", "detail": err})
             continue
         runs, failed = {}, None
         for (v, i), exp in expected.items():
             ps = param_sets[i]
-            where = dbt_runner.render_filter(pfilter, _with_defaults(ps, params)) if pfilter else None
-            got, err = dbt_runner.run_compiled(meta["slug"], v, exp[0], where)
+            full = _with_defaults(ps, params)
+            where = dbt_runner.render_filter(pfilter, full) if pfilter else None
+            var_values = {n: full.get("@" + n) for n in var_names} if mode == "vars" else None
+            got, err = dbt_runner.run_compiled(meta["slug"], v, exp[0], where, var_values)
             where_run = {"dataset": v, **({"params": {k: str(x) for k, x in ps.items()}} if ps else {})}
             if err:
                 failed = {**entry, "status": "runtime_error", "detail": f"{json.dumps(where_run)}: {err}"}

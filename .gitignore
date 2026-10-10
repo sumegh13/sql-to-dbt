@@ -7,3 +7,4 @@ dbt_project/logs/
 dbt_project/models/*
 !dbt_project/models/.gitkeep
 projects/*/build/
+out/

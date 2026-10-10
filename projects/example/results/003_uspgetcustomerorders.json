@@ -13,13 +13,15 @@
   "edge": 1
  },
  "param_sets": 3,
- "model_sql": "SELECT\n    o.OrderID,\n    o.OrderDate,\n    o.Status,\n    o.CustomerID,\n    SUM(CAST(l.Quantity * l.UnitPrice * (1 - COALESCE(l.Discount, 0)) AS DECIMAL(38,4))) AS OrderTotal,\n    COUNT(*) AS LineCount\nFROM {{ source('legacy', 'Sales_Orders') }} o\nJOIN {{ source('legacy', 'Sales_OrderLines') }} l\n    ON l.OrderID = o.OrderID\nGROUP BY o.OrderID, o.CustomerID, o.OrderDate, o.Status",
+ "model_sql": "WITH line_totals AS (\n    SELECT\n        l.OrderID,\n        CAST(l.Quantity * l.UnitPrice * (1 - COALESCE(l.Discount, 0)) AS DECIMAL(38,4)) AS line_amount\n    FROM {{ source('legacy', 'Sales_OrderLines') }} l\n),\norder_totals AS (\n    SELECT\n        OrderID,\n        SUM(line_amount) AS OrderTotal,\n        COUNT(*) AS LineCount\n    FROM line_totals\n    GROUP BY OrderID\n)\nSELECT\n    o.OrderID,\n    o.OrderDate,\n    o.Status,\n    o.CustomerID,\n    t.OrderTotal,\n    t.LineCount\nFROM {{ source('legacy', 'Sales_Orders') }} o\nJOIN order_totals t\n    ON t.OrderID = o.OrderID\nGROUP BY o.OrderID, o.OrderDate, o.Status, o.CustomerID, t.OrderTotal, t.LineCount",
  "param_filter": "CustomerID = @CustomerID",
+ "param_mode": "filter",
  "history": [
   {
    "attempt": 1,
-   "sql": "SELECT\n    o.OrderID,\n    o.OrderDate,\n    o.Status,\n    o.CustomerID,\n    SUM(CAST(l.Quantity * l.UnitPrice * (1 - COALESCE(l.Discount, 0)) AS DECIMAL(38,4))) AS OrderTotal,\n    COUNT(*) AS LineCount\nFROM {{ source('legacy', 'Sales_Orders') }} o\nJOIN {{ source('legacy', 'Sales_OrderLines') }} l\n    ON l.OrderID = o.OrderID\nGROUP BY o.OrderID, o.CustomerID, o.OrderDate, o.Status",
+   "sql": "WITH line_totals AS (\n    SELECT\n        l.OrderID,\n        CAST(l.Quantity * l.UnitPrice * (1 - COALESCE(l.Discount, 0)) AS DECIMAL(38,4)) AS line_amount\n    FROM {{ source('legacy', 'Sales_OrderLines') }} l\n),\norder_totals AS (\n    SELECT\n        OrderID,\n        SUM(line_amount) AS OrderTotal,\n        COUNT(*) AS LineCount\n    FROM line_totals\n    GROUP BY OrderID\n)\nSELECT\n    o.OrderID,\n    o.OrderDate,\n    o.Status,\n    o.CustomerID,\n    t.OrderTotal,\n    t.LineCount\nFROM {{ source('legacy', 'Sales_Orders') }} o\nJOIN order_totals t\n    ON t.OrderID = o.OrderID\nGROUP BY o.OrderID, o.OrderDate, o.Status, o.CustomerID, t.OrderTotal, t.LineCount",
    "param_filter": "CustomerID = @CustomerID",
+   "param_mode": "filter",
    "status": "match",
    "detail": {
     "runs": 12,
@@ -27,16 +29,16 @@
    }
   }
  ],
- "explanation": "This procedure returns one row per order for a given customer, showing the order's date and status, its total value after line discounts, and how many lines it has. Each line's value is quantity times unit price, reduced by the discount (treated as zero when missing). The model below covers all customers, and the filter selects the rows for the requested customer. Passing a NULL customer returns nothing, matching the procedure's `=` comparison.",
+ "explanation": "For each order, this procedure adds up the net value of its lines (quantity \u00d7 unit price, after discount, treating a missing discount as zero) and counts those lines. It returns one row per order for the given customer. Each order's totals depend only on that order's lines, so the customer filter can be applied to the finished rows.",
  "llm_calls": [
   {
    "model": "claude-haiku-5-5",
-   "input_tokens": 1827,
-   "output_tokens": 1250,
+   "input_tokens": 1829,
+   "output_tokens": 2060,
    "cache_write_tokens": 0,
    "cache_read_tokens": 0,
-   "cost_usd": 0.000808
+   "cost_usd": 0.001213
   }
  ],
- "cost_usd": 0.000808
+ "cost_usd": 0.001213
 }

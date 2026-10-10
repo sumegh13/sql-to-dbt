@@ -3,30 +3,109 @@
  "slug": "uspsalesbyregion",
  "difficulty": "unknown",
  "tags": [],
- "status": "needs_human",
- "reason_category": "parameter_changes_grain",
- "reason": "Parameters change which rows are aggregated, so no single parameter-free model plus row filter can reproduce it. The procedure returns one total per region over the whole date range, so the date parameters change the aggregated totals themselves. A row filter over the (region, date) grain would return per-day rows that still need re-aggregating, which the harness cannot do.",
- "attempts": 1,
+ "status": "verified",
+ "attempts": 3,
+ "rows": 41,
+ "datasets": {
+  "base": 11,
+  "seed_101": 11,
+  "seed_202": 11,
+  "edge": 8
+ },
+ "param_sets": 2,
+ "model_sql": "WITH base AS (\n    SELECT\n        COALESCE(c.Region, 'Unassigned') AS Region_raw,\n        lower(rtrim(COALESCE(c.Region, 'Unassigned'))) AS region_key,\n        o.OrderID AS OrderID,\n        l.Quantity * l.UnitPrice AS line_amount\n    FROM {{ source('legacy', 'Sales_Orders') }} o\n    JOIN {{ source('legacy', 'Customers') }} c\n        ON c.CustomerID = o.CustomerID\n    JOIN {{ source('legacy', 'Sales_OrderLines') }} l\n        ON l.OrderID = o.OrderID\n    WHERE o.OrderDate BETWEEN cast('{{ var(\"StartDate\") }}' as date) AND cast('{{ var(\"EndDate\") }}' as date)\n      AND lower(rtrim(o.Status)) <> 'cancelled'\n)\nSELECT\n    MAX(Region_raw) AS Region,\n    COUNT(DISTINCT OrderID) AS Orders,\n    CAST(SUM(line_amount) AS DECIMAL(38,2)) AS GrossRevenue\nFROM base\nGROUP BY region_key",
+ "param_filter": null,
+ "param_mode": "vars",
+ "dbt_vars": {
+  "StartDate": "2024-01-02",
+  "EndDate": "2025-12-30"
+ },
  "history": [
   {
    "attempt": 1,
-   "sql": "WITH base AS (\n    SELECT\n        o.OrderID,\n        o.OrderDate,\n        ISNULL(c.Region, 'Unassigned') AS region_raw,\n        l.Quantity,\n        l.UnitPrice\n    FROM {{ source('legacy', 'Sales_Orders') }} o\n    JOIN {{ source('legacy', 'Customers') }} c\n        ON c.CustomerID = o.CustomerID\n    JOIN {{ source('legacy', 'Sales_OrderLines') }} l\n        ON l.OrderID = o.OrderID\n    WHERE lower(rtrim(o.Status)) <> 'cancelled'\n)\nSELECT\n    min(region_raw) AS Region,\n    OrderDate,\n    COUNT(DISTINCT OrderID) AS Orders,\n    CAST(SUM(Quantity * UnitPrice) AS DECIMAL(38,2)) AS GrossRevenue\nFROM base\nGROUP BY lower(rtrim(region_raw)), OrderDate",
-   "param_filter": "NOT_FILTERABLE: The procedure returns one total per region over the whole date range, so the date parameters change the aggregated totals themselves. A row filter over the (region, date) grain would return per-day rows that still need re-aggregating, which the harness cannot do.",
+   "sql": "WITH base AS (\n    SELECT\n        COALESCE(c.Region, 'Unassigned') AS Region,\n        o.OrderDate AS OrderDate,\n        o.OrderID AS OrderID,\n        l.Quantity * l.UnitPrice AS line_amount\n    FROM {{ source('legacy', 'Sales_Orders') }} o\n    JOIN {{ source('legacy', 'Customers') }} c\n        ON c.CustomerID = o.CustomerID\n    JOIN {{ source('legacy', 'Sales_OrderLines') }} l\n        ON l.OrderID = o.OrderID\n    WHERE RTRIM(LOWER(o.Status)) <> 'cancelled'\n)\nSELECT\n    Region,\n    OrderDate,\n    COUNT(DISTINCT OrderID) AS Orders,\n    SUM(line_amount) AS GrossRevenue\nFROM base\nGROUP BY Region, OrderDate",
+   "param_filter": "NOT_FILTERABLE: the date range restricts the rows that feed the COUNT(DISTINCT) and SUM aggregates, so the totals per region change with the parameters and cannot be selected by a row filter over this model's output.",
+   "param_mode": "filter",
    "status": "not_filterable",
-   "detail": "NOT_FILTERABLE: The procedure returns one total per region over the whole date range, so the date parameters change the aggregated totals themselves. A row filter over the (region, date) grain would return per-day rows that still need re-aggregating, which the harness cannot do."
+   "detail": "NOT_FILTERABLE: the date range restricts the rows that feed the COUNT(DISTINCT) and SUM aggregates, so the totals per region change with the parameters and cannot be selected by a row filter over this model's output."
+  },
+  {
+   "attempt": 2,
+   "sql": "WITH base AS (\n    SELECT\n        COALESCE(c.Region, 'Unassigned') AS Region_raw,\n        lower(rtrim(COALESCE(c.Region, 'Unassigned'))) AS region_key,\n        o.OrderID AS OrderID,\n        l.Quantity * l.UnitPrice AS line_amount\n    FROM {{ source('legacy', 'Sales_Orders') }} o\n    JOIN {{ source('legacy', 'Customers') }} c\n        ON c.CustomerID = o.CustomerID\n    JOIN {{ source('legacy', 'Sales_OrderLines') }} l\n        ON l.OrderID = o.OrderID\n    WHERE o.OrderDate BETWEEN cast('{{ var(\"StartDate\") }}' as date) AND cast('{{ var(\"EndDate\") }}' as date)\n      AND lower(rtrim(o.Status)) <> 'cancelled'\n)\nSELECT\n    MIN(Region_raw) AS Region,\n    COUNT(DISTINCT OrderID) AS Orders,\n    CAST(SUM(line_amount) AS DECIMAL(38,2)) AS GrossRevenue\nFROM base\nGROUP BY region_key",
+   "param_filter": null,
+   "param_mode": "vars",
+   "status": "diff",
+   "detail": {
+    "dataset": "edge",
+    "params": {
+     "@StartDate": "2024-01-02",
+     "@EndDate": "2025-12-30"
+    },
+    "equivalent": false,
+    "legacy_rows": 4,
+    "new_rows": 4,
+    "issues": [
+     {
+      "in_legacy_not_new": [
+       [
+        "omega",
+        4,
+        4547552.51
+       ]
+      ],
+      "count": 1
+     },
+     {
+      "in_new_not_legacy": [
+       [
+        "OMEGA",
+        4,
+        4547552.51
+       ]
+      ],
+      "count": 1
+     }
+    ]
+   }
+  },
+  {
+   "attempt": 3,
+   "sql": "WITH base AS (\n    SELECT\n        COALESCE(c.Region, 'Unassigned') AS Region_raw,\n        lower(rtrim(COALESCE(c.Region, 'Unassigned'))) AS region_key,\n        o.OrderID AS OrderID,\n        l.Quantity * l.UnitPrice AS line_amount\n    FROM {{ source('legacy', 'Sales_Orders') }} o\n    JOIN {{ source('legacy', 'Customers') }} c\n        ON c.CustomerID = o.CustomerID\n    JOIN {{ source('legacy', 'Sales_OrderLines') }} l\n        ON l.OrderID = o.OrderID\n    WHERE o.OrderDate BETWEEN cast('{{ var(\"StartDate\") }}' as date) AND cast('{{ var(\"EndDate\") }}' as date)\n      AND lower(rtrim(o.Status)) <> 'cancelled'\n)\nSELECT\n    MAX(Region_raw) AS Region,\n    COUNT(DISTINCT OrderID) AS Orders,\n    CAST(SUM(line_amount) AS DECIMAL(38,2)) AS GrossRevenue\nFROM base\nGROUP BY region_key",
+   "param_filter": null,
+   "param_mode": "vars",
+   "status": "match",
+   "detail": {
+    "runs": 8,
+    "rows": 41
+   }
   }
  ],
- "model_sql": "WITH base AS (\n    SELECT\n        o.OrderID,\n        o.OrderDate,\n        ISNULL(c.Region, 'Unassigned') AS region_raw,\n        l.Quantity,\n        l.UnitPrice\n    FROM {{ source('legacy', 'Sales_Orders') }} o\n    JOIN {{ source('legacy', 'Customers') }} c\n        ON c.CustomerID = o.CustomerID\n    JOIN {{ source('legacy', 'Sales_OrderLines') }} l\n        ON l.OrderID = o.OrderID\n    WHERE lower(rtrim(o.Status)) <> 'cancelled'\n)\nSELECT\n    min(region_raw) AS Region,\n    OrderDate,\n    COUNT(DISTINCT OrderID) AS Orders,\n    CAST(SUM(Quantity * UnitPrice) AS DECIMAL(38,2)) AS GrossRevenue\nFROM base\nGROUP BY lower(rtrim(region_raw)), OrderDate",
- "explanation": "This procedure totals sales by customer region for orders placed between two dates. It leaves out cancelled orders and reports, for each region, the number of distinct orders and the gross revenue (quantity times unit price). Orders with no region are grouped under \"Unassigned\".",
+ "explanation": "This procedure totals gross revenue and distinct order counts by customer region for orders placed between two dates, skipping cancelled orders. Orders with no region are grouped under \"Unassigned\". The model below keeps the order date as an extra grain column so the date range can be applied later. Because the totals are aggregated over the range, a row filter on the output cannot reproduce them.",
  "llm_calls": [
   {
    "model": "claude-haiku-5-5",
-   "input_tokens": 1884,
-   "output_tokens": 2750,
+   "input_tokens": 1886,
+   "output_tokens": 2097,
    "cache_write_tokens": 0,
    "cache_read_tokens": 0,
-   "cost_usd": 0.001563
+   "cost_usd": 0.001237
+  },
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 2758,
+   "output_tokens": 2277,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.001414
+  },
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 3359,
+   "output_tokens": 1567,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.001119
   }
  ],
- "cost_usd": 0.001563
+ "cost_usd": 0.00377
 }

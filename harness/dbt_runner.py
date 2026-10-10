@@ -83,8 +83,26 @@ def _dbt_error(log: str) -> str:
     return "\n".join(l for l in lines[start:] if l.strip() and not l.startswith(("Done.", "Finished running", "Completed with")))[:2000]
 
 
-def run_model(model_name, model_sql):
-    """Returns ((cols, rows), None) on success or (None, error_text)."""
+def var_sentinel(name: str) -> str:
+    return f"__SQLTODBT_VAR_{name}__"
+
+
+def var_text(v) -> str:
+    """How a parameter value renders through {{ var() }}: its plain text; NULL renders as the empty string."""
+    from datetime import date, datetime
+    if v is None:
+        return ""
+    if isinstance(v, datetime):
+        return v.isoformat(sep=" ")
+    if isinstance(v, date):
+        return v.isoformat()
+    return str(v)
+
+
+def run_model(model_name, model_sql, dbt_vars: dict | None = None):
+    """dbt run the model (with --vars when given). Returns ((cols, rows), None) on success or (None, error_text).
+    With dbt_vars, also compiles the model with sentinel var values so run_compiled(..., var_values=) can
+    substitute each parameter set without another dbt invocation."""
     if not re.fullmatch(r"\w+", model_name):
         raise ValueError(f"bad model name {model_name!r}")
     reason = check_model_sql(model_sql)
@@ -93,11 +111,19 @@ def run_model(model_name, model_sql):
     for f in (ROOT / "models").glob("*.sql"):
         f.unlink()
     (ROOT / "models" / f"{model_name}.sql").write_text(model_sql)
+    import json as _json
+
+    def dbt(command, vars_):
+        cmd = [str(DBT), command, "--select", model_name, "--profiles-dir", ".", "--project-dir", "."]
+        if vars_ is not None:
+            cmd += ["--vars", _json.dumps(vars_)]
+        return subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, timeout=TIMEOUT_S)
     try:
-        p = subprocess.run([str(DBT), "run", "--select", model_name, "--profiles-dir", ".", "--project-dir", "."],
-                           cwd=ROOT, capture_output=True, text=True, timeout=TIMEOUT_S)
+        p = dbt("run", {k: var_text(v) for k, v in dbt_vars.items()} if dbt_vars is not None else None)
+        if p.returncode == 0 and dbt_vars is not None:
+            p = dbt("compile", {k: var_sentinel(k) for k in dbt_vars})
     except subprocess.TimeoutExpired:
-        return None, f"dbt run timed out after {TIMEOUT_S}s"
+        return None, f"dbt timed out after {TIMEOUT_S}s"
     if p.returncode != 0:
         return None, _dbt_error(p.stdout + p.stderr)
     con = duckdb.connect(str(DB), read_only=True)
@@ -131,10 +157,13 @@ def render_filter(expr: str, params: dict) -> str:
     return expr
 
 
-def run_compiled(model_name, variant, columns=None, filter_expr=None):
+def run_compiled(model_name, variant, columns=None, filter_expr=None, var_values: dict | None = None):
     """Execute the model dbt compiled in the last run_model() against a dataset, sandboxed. Projects to the
-    expected columns (a model may carry extra columns for parameter filtering) and applies the rendered filter."""
+    expected columns (a model may carry extra columns for parameter filtering) and applies the rendered filter.
+    var_values fills in the sentinel-compiled dbt vars (same text dbt itself would have rendered)."""
     sql = (ROOT / "target" / "compiled" / "migrated" / "models" / f"{model_name}.sql").read_text()
+    for k, v in (var_values or {}).items():
+        sql = sql.replace(var_sentinel(k), var_text(v).replace("'", "''"))
     if filter_expr:
         reason = check_model_sql(filter_expr)
         if reason or "@" in filter_expr:

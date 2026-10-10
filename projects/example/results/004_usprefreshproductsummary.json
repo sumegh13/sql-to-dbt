@@ -15,11 +15,13 @@
  "param_sets": 1,
  "model_sql": "SELECT\n    p.ProductID,\n    p.ProductName,\n    CAST(COALESCE(SUM(l.Quantity), 0) AS INTEGER) AS UnitsSold,\n    CAST(COALESCE(SUM(l.Quantity * l.UnitPrice), 0) AS DECIMAL(14,2)) AS Revenue\nFROM {{ source('legacy', 'Products') }} p\nLEFT JOIN {{ source('legacy', 'Sales_OrderLines') }} l\n    ON l.ProductID = p.ProductID\nGROUP BY p.ProductID, p.ProductName",
  "param_filter": null,
+ "param_mode": "filter",
  "history": [
   {
    "attempt": 1,
    "sql": "SELECT\n    p.ProductID,\n    p.ProductName,\n    CAST(COALESCE(SUM(l.Quantity), 0) AS INTEGER) AS UnitsSold,\n    CAST(COALESCE(SUM(l.Quantity * l.UnitPrice), 0) AS DECIMAL(14,2)) AS Revenue\nFROM {{ source('legacy', 'Products') }} p\nLEFT JOIN {{ source('legacy', 'Sales_OrderLines') }} l\n    ON l.ProductID = p.ProductID\nGROUP BY p.ProductID, p.ProductName",
    "param_filter": null,
+   "param_mode": "filter",
    "status": "match",
    "detail": {
     "runs": 4,
@@ -27,16 +29,16 @@
    }
   }
  ],
- "explanation": "This procedure rebuilds a product sales summary table from scratch. For every product, it totals the units sold and the revenue (quantity times unit price) across all order lines, and it reports zero for products with no sales. The model below gives that same per-product result as a single query, with no parameters.",
+ "explanation": "This procedure rebuilds a product sales summary: it clears the ProductSummary table and reloads it with one row per product. Each row gives the total units sold and total revenue (quantity times unit price) across all order lines, with zeros for products that never sold. Products with no sales still appear.",
  "llm_calls": [
   {
    "model": "claude-haiku-5-5",
-   "input_tokens": 1808,
-   "output_tokens": 1556,
+   "input_tokens": 1810,
+   "output_tokens": 979,
    "cache_write_tokens": 0,
    "cache_read_tokens": 0,
-   "cost_usd": 0.000959
+   "cost_usd": 0.00067
   }
  ],
- "cost_usd": 0.000959
+ "cost_usd": 0.00067
 }
