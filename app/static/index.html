@@ -81,8 +81,8 @@ input[type=text],input[type=password],input[type=number]{width:100%;font:inherit
   </div>
 
   <label for="key">Anthropic API key</label>
-  <input type="password" id="key" name="anthropic_key" placeholder="sk-ant-... (leave empty to use the server's key)">
-  <p class="hint">Used for this job only and never saved. A 50-procedure run costs about $0.05 with Claude Haiku.</p>
+  <input type="password" id="key" name="anthropic_key" placeholder="sk-ant-..." required>
+  <p class="hint">Required. Your key is used only for this job and is never saved or logged. A 50-procedure run costs about $0.05 with Claude Haiku, billed to your Anthropic account.</p>
 
   <div style="margin-top:18px"><button class="btn primary" id="go" type="submit">Start migration</button></div>
   <div class="err" id="err"></div>

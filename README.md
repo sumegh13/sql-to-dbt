@@ -34,7 +34,7 @@ T-SQL proc ──► triage ──► Claude translates ──► dbt model
 Click **Open in GitHub Codespaces** above. GitHub starts the app and a SQL Server for you in the cloud, on your own Codespaces free monthly hours, and opens the app in a browser tab when it's ready (a few minutes on first launch). From there:
 
 1. Upload a folder or .zip of `.sql` scripts, paste a GitHub repo URL, or connect to a SQL Server.
-2. Paste your Anthropic API key, or save it once as a Codespaces secret named `ANTHROPIC_API_KEY`.
+2. Paste your Anthropic API key. It's used only for that run and never saved; the app never uses any other key.
 3. Watch each procedure migrate, then open the dashboard or download the dbt project.
 
 Any script layout works: SSMS "Generate Scripts" output, one procedure per file, or mixed files. Include the `CREATE TABLE` scripts for the tables your procedures use. If you include `INSERT` scripts, they are used as test data; otherwise test data is generated from the table definitions. A SQL Server connection is read-only and must be reachable from the Codespace.

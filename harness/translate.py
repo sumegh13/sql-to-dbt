@@ -17,7 +17,7 @@ PRICES = {"claude-haiku-5-5": (0.10, 0.50), "claude-sonnet-5-5": (2.00, 10.00), 
 
 def _load_dotenv():
     env = ROOT / ".env"
-    if env.exists():
+    if env.exists() and not os.environ.get("SQLTODBT_NO_DOTENV"):
         for line in env.read_text().splitlines():
             k, sep, v = line.strip().partition("=")
             if sep and not k.startswith("#") and v and k not in os.environ:

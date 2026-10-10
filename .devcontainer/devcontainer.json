@@ -13,11 +13,6 @@
     "MSSQL_SA_PASSWORD": "Legacy_Pass123",
     "UV_PROJECT_ENVIRONMENT": "/home/vscode/.venv"
   },
-  "secrets": {
-    "ANTHROPIC_API_KEY": {
-      "description": "Optional. Your Anthropic API key, used to translate procedures. You can also paste a key into the app instead."
-    }
-  },
   "forwardPorts": [
     8000
   ],

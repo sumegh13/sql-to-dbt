@@ -103,10 +103,12 @@ def _run(job: Job):
     from migrate import migrate
 
     jid = job.id
-    old_key = os.environ.get("ANTHROPIC_API_KEY")
-    if job.secrets.get("anthropic_key"):
-        os.environ["ANTHROPIC_API_KEY"] = job.secrets["anthropic_key"]
+    key = job.secrets.get("anthropic_key")
     try:
+        if not key:
+            raise ValueError("No Anthropic API key was given for this job.")
+        _check_key(key)
+        os.environ["ANTHROPIC_API_KEY"] = key  # only for the duration of this job
         write_status(jid, state="ingesting", started=time.time())
         root = job.project_root
         if job.source == "upload":
@@ -126,8 +128,7 @@ def _run(job: Job):
         dirs = sorted(d for d in proj.procs.iterdir() if d.is_dir())
         names = [json.loads((d / "meta.json").read_text())["proc"] for d in dirs]
         write_status(jid, state="migrating", procs=[{"name": n, "status": "pending"} for n in names])
-        log(jid, "built 4 test datasets; migrating" + ("" if os.environ.get("ANTHROPIC_API_KEY") else
-                                                         " (no Claude key: only procs with a reference model can migrate)"))
+        log(jid, "built 4 test datasets; migrating")
 
         proj.results.mkdir(parents=True, exist_ok=True)
         statuses = [{"name": n, "status": "pending"} for n in names]
@@ -153,12 +154,23 @@ def _run(job: Job):
     except Exception as e:
         write_status(jid, state="failed", error=f"{type(e).__name__}: {e}", trace=traceback.format_exc()[-3000:])
     finally:
-        if old_key is None:
-            os.environ.pop("ANTHROPIC_API_KEY", None)
-        else:
-            os.environ["ANTHROPIC_API_KEY"] = old_key
+        os.environ.pop("ANTHROPIC_API_KEY", None)
         job.secrets.clear()
         _drop_database(projects.database_name(job.project_root.name))
+
+
+def _check_key(key: str):
+    """Fail fast with a clear message instead of failing every procedure later. Costs no tokens."""
+    import anthropic
+    from harness.translate import MODEL
+    try:
+        anthropic.Anthropic(api_key=key, max_retries=1).models.retrieve(MODEL)
+    except anthropic.AuthenticationError:
+        raise ValueError("Anthropic rejected this API key. Check it at console.anthropic.com.") from None
+    except anthropic.PermissionDeniedError:
+        raise ValueError(f"This API key can't use {MODEL}.") from None
+    except anthropic.APIConnectionError:
+        raise ValueError("Could not reach the Anthropic API from here.") from None
 
 
 def _worker():

@@ -70,6 +70,8 @@ async def api_create(
     sample_rows: str = Form("0"),
     anthropic_key: str = Form(""),
 ):
+    if not anthropic_key.strip().startswith("sk-ant-"):
+        raise HTTPException(400, "Enter your Anthropic API key (starts with sk-ant-). The app only uses the key you enter here.")
     secrets = {k: v for k, v in (("anthropic_key", anthropic_key.strip()), ("github_token", github_token.strip()),
                                  ("password", password)) if v}
     if source == "upload":
