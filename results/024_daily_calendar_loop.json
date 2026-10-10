@@ -1,0 +1,25 @@
+{
+ "id": 24,
+ "slug": "daily_calendar_loop",
+ "difficulty": "medium",
+ "tags": [
+  "while-loop",
+  "calendar"
+ ],
+ "status": "verified",
+ "attempts": 1,
+ "rows": 61,
+ "model_sql": "select cast(d.d as date) as cal_date, count(o.order_id) as orders_placed\nfrom generate_series(date '2025-11-01', date '2025-12-31', interval 1 day) as d(d)\nleft join {{ source('legacy', 'orders') }} o on o.order_date = cast(d.d as date)\ngroup by 1\n",
+ "history": [
+  {
+   "attempt": 1,
+   "status": "match",
+   "detail": {
+    "equivalent": true,
+    "legacy_rows": 61,
+    "new_rows": 61,
+    "issues": []
+   }
+  }
+ ]
+}

@@ -1,0 +1,24 @@
+{
+ "id": 33,
+ "slug": "median_order_by_region",
+ "difficulty": "medium",
+ "tags": [
+  "percentile_cont"
+ ],
+ "status": "verified",
+ "attempts": 1,
+ "rows": 5,
+ "model_sql": "select c.region, quantile_cont(cast(o.amount as double), 0.5) as median_amount\nfrom {{ source('legacy', 'orders') }} o join {{ source('legacy', 'customers') }} c on c.customer_id = o.customer_id group by c.region\n",
+ "history": [
+  {
+   "attempt": 1,
+   "status": "match",
+   "detail": {
+    "equivalent": true,
+    "legacy_rows": 5,
+    "new_rows": 5,
+    "issues": []
+   }
+  }
+ ]
+}

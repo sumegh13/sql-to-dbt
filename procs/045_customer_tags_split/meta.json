@@ -1,0 +1,11 @@
+{
+ "id": 45,
+ "slug": "customer_tags_split",
+ "proc": "dbo.usp_customer_tags_split",
+ "output": "dbo.customer_tags_split",
+ "difficulty": "medium",
+ "tags": [
+  "string_split",
+  "cross-apply"
+ ]
+}

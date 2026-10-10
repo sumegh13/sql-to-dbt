@@ -1,0 +1,11 @@
+{
+ "id": 30,
+ "slug": "order_outstanding_update_join",
+ "proc": "dbo.usp_order_outstanding_update_join",
+ "output": "dbo.order_outstanding_update_join",
+ "difficulty": "medium",
+ "tags": [
+  "update-from",
+  "temp-tables"
+ ]
+}

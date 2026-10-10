@@ -1,0 +1,11 @@
+{
+ "id": 34,
+ "slug": "repeat_purchase_flag",
+ "proc": "dbo.usp_repeat_purchase_flag",
+ "output": "dbo.repeat_purchase_flag",
+ "difficulty": "medium",
+ "tags": [
+  "lag",
+  "datediff"
+ ]
+}

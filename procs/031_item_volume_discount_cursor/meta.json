@@ -1,0 +1,11 @@
+{
+ "id": 31,
+ "slug": "item_volume_discount_cursor",
+ "proc": "dbo.usp_item_volume_discount_cursor",
+ "output": "dbo.item_volume_discount_cursor",
+ "difficulty": "hard",
+ "tags": [
+  "cursor",
+  "control-break"
+ ]
+}

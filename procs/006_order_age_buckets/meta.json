@@ -1,0 +1,10 @@
+{
+ "id": 6,
+ "slug": "order_age_buckets",
+ "proc": "dbo.usp_order_age_buckets",
+ "output": "dbo.order_age_buckets",
+ "difficulty": "easy",
+ "tags": [
+  "datediff"
+ ]
+}

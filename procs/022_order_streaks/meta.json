@@ -1,0 +1,10 @@
+{
+ "id": 22,
+ "slug": "order_streaks",
+ "proc": "dbo.usp_order_streaks",
+ "output": "dbo.order_streaks",
+ "difficulty": "hard",
+ "tags": [
+  "gaps-and-islands"
+ ]
+}

@@ -1,0 +1,24 @@
+{
+ "id": 1,
+ "slug": "customer_order_totals",
+ "difficulty": "medium",
+ "tags": [
+  "cursor"
+ ],
+ "status": "verified",
+ "attempts": 1,
+ "rows": 12,
+ "model_sql": "select c.customer_id, c.customer_name, count(o.order_id) as order_count,\n       coalesce(sum(o.amount), 0) as total_amount,\n       case when coalesce(sum(o.amount), 0) >= 1000 then 'gold'\n            when coalesce(sum(o.amount), 0) >= 500 then 'silver' else 'bronze' end as tier\nfrom {{ source('legacy', 'customers') }} c\nleft join {{ source('legacy', 'orders') }} o on o.customer_id = c.customer_id and lower(o.status) <> 'cancelled'\ngroup by c.customer_id, c.customer_name\n",
+ "history": [
+  {
+   "attempt": 1,
+   "status": "match",
+   "detail": {
+    "equivalent": true,
+    "legacy_rows": 12,
+    "new_rows": 12,
+    "issues": []
+   }
+  }
+ ]
+}

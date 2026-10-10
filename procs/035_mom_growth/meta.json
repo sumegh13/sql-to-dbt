@@ -1,0 +1,12 @@
+{
+ "id": 35,
+ "slug": "mom_growth",
+ "proc": "dbo.usp_mom_growth",
+ "output": "dbo.mom_growth",
+ "difficulty": "hard",
+ "tags": [
+  "lag",
+  "nullif",
+  "decimal-rounding"
+ ]
+}

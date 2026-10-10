@@ -1,0 +1,11 @@
+{
+ "id": 21,
+ "slug": "price_scd2",
+ "proc": "dbo.usp_price_scd2",
+ "output": "dbo.price_scd2",
+ "difficulty": "hard",
+ "tags": [
+  "scd2",
+  "lead"
+ ]
+}

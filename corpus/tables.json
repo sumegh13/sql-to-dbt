@@ -1,0 +1,12 @@
+[
+ "dbo.customers",
+ "dbo.products",
+ "dbo.orders",
+ "dbo.order_items",
+ "dbo.employees",
+ "dbo.payments",
+ "dbo.inventory",
+ "dbo.price_history",
+ "dbo.customer_staging",
+ "dbo.report_config"
+]

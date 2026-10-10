@@ -1,0 +1,24 @@
+{
+ "id": 28,
+ "slug": "legacy_code_cleanup",
+ "difficulty": "easy",
+ "tags": [
+  "try_cast"
+ ],
+ "status": "verified",
+ "attempts": 1,
+ "rows": 12,
+ "model_sql": "select customer_id, legacy_code, try_cast(legacy_code as integer) as legacy_code_num,\n  case when try_cast(legacy_code as integer) is null then 1 else 0 end as invalid\nfrom {{ source('legacy', 'customers') }}\n",
+ "history": [
+  {
+   "attempt": 1,
+   "status": "match",
+   "detail": {
+    "equivalent": true,
+    "legacy_rows": 12,
+    "new_rows": 12,
+    "issues": []
+   }
+  }
+ ]
+}

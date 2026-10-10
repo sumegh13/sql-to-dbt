@@ -1,0 +1,24 @@
+{
+ "id": 10,
+ "slug": "customers_without_orders",
+ "difficulty": "easy",
+ "tags": [
+  "not-exists"
+ ],
+ "status": "verified",
+ "attempts": 1,
+ "rows": 2,
+ "model_sql": "select c.customer_id, c.customer_name from {{ source('legacy', 'customers') }} c\nwhere not exists (select 1 from {{ source('legacy', 'orders') }} o where o.customer_id = c.customer_id)\n",
+ "history": [
+  {
+   "attempt": 1,
+   "status": "match",
+   "detail": {
+    "equivalent": true,
+    "legacy_rows": 2,
+    "new_rows": 2,
+    "issues": []
+   }
+  }
+ ]
+}

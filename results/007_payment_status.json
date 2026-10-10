@@ -1,0 +1,24 @@
+{
+ "id": 7,
+ "slug": "payment_status",
+ "difficulty": "easy",
+ "tags": [
+  "left-join"
+ ],
+ "status": "verified",
+ "attempts": 1,
+ "rows": 34,
+ "model_sql": "select o.order_id, o.amount, coalesce(sum(p.paid_amount), 0) as paid,\n  case when coalesce(sum(p.paid_amount), 0) >= o.amount then 'paid'\n       when coalesce(sum(p.paid_amount), 0) > 0 then 'partial' else 'unpaid' end as payment_status\nfrom {{ source('legacy', 'orders') }} o left join {{ source('legacy', 'payments') }} p on p.order_id = o.order_id\ngroup by o.order_id, o.amount\n",
+ "history": [
+  {
+   "attempt": 1,
+   "status": "match",
+   "detail": {
+    "equivalent": true,
+    "legacy_rows": 34,
+    "new_rows": 34,
+    "issues": []
+   }
+  }
+ ]
+}

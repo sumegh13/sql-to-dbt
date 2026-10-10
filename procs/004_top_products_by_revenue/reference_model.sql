@@ -1,0 +1,3 @@
+select p.product_id, p.product_name, sum(i.qty * i.unit_price) as revenue
+from {{ source('legacy', 'order_items') }} i join {{ source('legacy', 'products') }} p on p.product_id = i.product_id
+group by 1, 2 order by revenue desc, p.product_id limit 5

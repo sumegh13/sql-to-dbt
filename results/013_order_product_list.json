@@ -1,0 +1,24 @@
+{
+ "id": 13,
+ "slug": "order_product_list",
+ "difficulty": "medium",
+ "tags": [
+  "string_agg"
+ ],
+ "status": "verified",
+ "attempts": 1,
+ "rows": 34,
+ "model_sql": "select o.order_id, string_agg(p.product_name, ', ' order by p.product_name) as products\nfrom {{ source('legacy', 'orders') }} o join {{ source('legacy', 'order_items') }} i on i.order_id = o.order_id\njoin {{ source('legacy', 'products') }} p on p.product_id = i.product_id group by o.order_id\n",
+ "history": [
+  {
+   "attempt": 1,
+   "status": "match",
+   "detail": {
+    "equivalent": true,
+    "legacy_rows": 34,
+    "new_rows": 34,
+    "issues": []
+   }
+  }
+ ]
+}

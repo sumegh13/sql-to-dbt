@@ -1,0 +1,25 @@
+{
+ "id": 14,
+ "slug": "buyers_by_region",
+ "difficulty": "easy",
+ "tags": [
+  "count-distinct",
+  "null-group"
+ ],
+ "status": "verified",
+ "attempts": 1,
+ "rows": 5,
+ "model_sql": "select c.region, count(distinct c.customer_id) as buyers\nfrom {{ source('legacy', 'customers') }} c join {{ source('legacy', 'orders') }} o on o.customer_id = c.customer_id group by c.region\n",
+ "history": [
+  {
+   "attempt": 1,
+   "status": "match",
+   "detail": {
+    "equivalent": true,
+    "legacy_rows": 5,
+    "new_rows": 5,
+    "issues": []
+   }
+  }
+ ]
+}

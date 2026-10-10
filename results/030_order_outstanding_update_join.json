@@ -1,0 +1,25 @@
+{
+ "id": 30,
+ "slug": "order_outstanding_update_join",
+ "difficulty": "medium",
+ "tags": [
+  "update-from",
+  "temp-tables"
+ ],
+ "status": "verified",
+ "attempts": 1,
+ "rows": 34,
+ "model_sql": "select o.order_id, o.amount, coalesce(x.total, 0) as paid, o.amount - coalesce(x.total, 0) as outstanding, x.last_dt as last_paid\nfrom {{ source('legacy', 'orders') }} o\nleft join (select order_id, sum(paid_amount) as total, max(paid_date) as last_dt from {{ source('legacy', 'payments') }} group by order_id) x\n  on x.order_id = o.order_id\n",
+ "history": [
+  {
+   "attempt": 1,
+   "status": "match",
+   "detail": {
+    "equivalent": true,
+    "legacy_rows": 34,
+    "new_rows": 34,
+    "issues": []
+   }
+  }
+ ]
+}

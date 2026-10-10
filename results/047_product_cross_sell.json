@@ -1,0 +1,24 @@
+{
+ "id": 47,
+ "slug": "product_cross_sell",
+ "difficulty": "medium",
+ "tags": [
+  "self-join"
+ ],
+ "status": "verified",
+ "attempts": 1,
+ "rows": 27,
+ "model_sql": "select a.product_id as product_a, b.product_id as product_b, count(distinct a.order_id) as together\nfrom {{ source('legacy', 'order_items') }} a join {{ source('legacy', 'order_items') }} b on a.order_id = b.order_id and a.product_id < b.product_id\ngroup by 1, 2\n",
+ "history": [
+  {
+   "attempt": 1,
+   "status": "match",
+   "detail": {
+    "equivalent": true,
+    "legacy_rows": 27,
+    "new_rows": 27,
+    "issues": []
+   }
+  }
+ ]
+}

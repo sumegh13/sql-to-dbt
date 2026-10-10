@@ -1,0 +1,11 @@
+{
+ "id": 37,
+ "slug": "customer_segments_cte_chain",
+ "proc": "dbo.usp_customer_segments_cte_chain",
+ "output": "dbo.customer_segments_cte_chain",
+ "difficulty": "medium",
+ "tags": [
+  "cte-chain",
+  "decimal-division"
+ ]
+}

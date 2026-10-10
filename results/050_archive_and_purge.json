@@ -1,0 +1,13 @@
+{
+ "id": 50,
+ "slug": "archive_and_purge",
+ "difficulty": "human",
+ "tags": [
+  "mutates-source"
+ ],
+ "status": "needs_human",
+ "reason_category": "mutates_source",
+ "reason": "Modifies existing tables in place (dbo.customers, dbo.orders); a dbt model can only build new relations, so this needs a design decision (incremental/snapshot/ops job).",
+ "attempts": 0,
+ "history": []
+}

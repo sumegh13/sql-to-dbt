@@ -1,0 +1,24 @@
+{
+ "id": 41,
+ "slug": "hardware_not_software_buyers",
+ "difficulty": "easy",
+ "tags": [
+  "except"
+ ],
+ "status": "verified",
+ "attempts": 1,
+ "rows": 1,
+ "model_sql": "select distinct o.customer_id from {{ source('legacy', 'orders') }} o\njoin {{ source('legacy', 'order_items') }} i on i.order_id = o.order_id join {{ source('legacy', 'products') }} p on p.product_id = i.product_id where p.category = 'Hardware'\nexcept\nselect distinct o.customer_id from {{ source('legacy', 'orders') }} o\njoin {{ source('legacy', 'order_items') }} i on i.order_id = o.order_id join {{ source('legacy', 'products') }} p on p.product_id = i.product_id where p.category = 'Software'\n",
+ "history": [
+  {
+   "attempt": 1,
+   "status": "match",
+   "detail": {
+    "equivalent": true,
+    "legacy_rows": 1,
+    "new_rows": 1,
+    "issues": []
+   }
+  }
+ ]
+}

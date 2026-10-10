@@ -1,0 +1,24 @@
+{
+ "id": 5,
+ "slug": "customer_email_domains",
+ "difficulty": "easy",
+ "tags": [
+  "string-functions"
+ ],
+ "status": "verified",
+ "attempts": 1,
+ "rows": 3,
+ "model_sql": "select split_part(email, '@', 2) as domain, count(*) as customers\nfrom {{ source('legacy', 'customers') }} where email is not null group by 1\n",
+ "history": [
+  {
+   "attempt": 1,
+   "status": "match",
+   "detail": {
+    "equivalent": true,
+    "legacy_rows": 3,
+    "new_rows": 3,
+    "issues": []
+   }
+  }
+ ]
+}

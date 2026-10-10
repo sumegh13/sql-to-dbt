@@ -1,0 +1,11 @@
+{
+ "id": 24,
+ "slug": "daily_calendar_loop",
+ "proc": "dbo.usp_daily_calendar_loop",
+ "output": "dbo.daily_calendar_loop",
+ "difficulty": "medium",
+ "tags": [
+  "while-loop",
+  "calendar"
+ ]
+}

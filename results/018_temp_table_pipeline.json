@@ -1,0 +1,24 @@
+{
+ "id": 18,
+ "slug": "temp_table_pipeline",
+ "difficulty": "medium",
+ "tags": [
+  "temp-tables"
+ ],
+ "status": "verified",
+ "attempts": 1,
+ "rows": 12,
+ "model_sql": "with spend as (\n  select customer_id, sum(amount) as spend from {{ source('legacy', 'orders') }}\n  where lower(status) not in ('cancelled','returned') group by customer_id),\njoined as (\n  select c.customer_id, c.customer_name, coalesce(s.spend, 0) as spend\n  from {{ source('legacy', 'customers') }} c left join spend s on s.customer_id = c.customer_id)\nselect j.customer_id, j.customer_name, j.spend,\n  case when j.spend > (select avg(spend) from joined) then 'above_avg' else 'at_or_below_avg' end as vs_avg\nfrom joined j\n",
+ "history": [
+  {
+   "attempt": 1,
+   "status": "match",
+   "detail": {
+    "equivalent": true,
+    "legacy_rows": 12,
+    "new_rows": 12,
+    "issues": []
+   }
+  }
+ ]
+}

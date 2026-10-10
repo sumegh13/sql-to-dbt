@@ -1,0 +1,24 @@
+{
+ "id": 23,
+ "slug": "org_hierarchy",
+ "difficulty": "hard",
+ "tags": [
+  "recursive-cte"
+ ],
+ "status": "verified",
+ "attempts": 1,
+ "rows": 10,
+ "model_sql": "with recursive h as (\n  select employee_id, emp_name, manager_id, 0 as lvl, cast(emp_name as varchar) as path\n  from {{ source('legacy', 'employees') }} where manager_id is null\n  union all\n  select e.employee_id, e.emp_name, e.manager_id, h.lvl + 1, h.path || ' > ' || e.emp_name\n  from {{ source('legacy', 'employees') }} e join h on e.manager_id = h.employee_id)\nselect employee_id, emp_name, lvl, path from h\n",
+ "history": [
+  {
+   "attempt": 1,
+   "status": "match",
+   "detail": {
+    "equivalent": true,
+    "legacy_rows": 10,
+    "new_rows": 10,
+    "issues": []
+   }
+  }
+ ]
+}

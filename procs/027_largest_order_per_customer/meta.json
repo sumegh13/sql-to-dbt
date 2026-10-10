@@ -1,0 +1,11 @@
+{
+ "id": 27,
+ "slug": "largest_order_per_customer",
+ "proc": "dbo.usp_largest_order_per_customer",
+ "output": "dbo.largest_order_per_customer",
+ "difficulty": "medium",
+ "tags": [
+  "cross-apply",
+  "top-1"
+ ]
+}

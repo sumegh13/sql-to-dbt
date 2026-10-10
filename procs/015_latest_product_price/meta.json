@@ -1,0 +1,11 @@
+{
+ "id": 15,
+ "slug": "latest_product_price",
+ "proc": "dbo.usp_latest_product_price",
+ "output": "dbo.latest_product_price",
+ "difficulty": "medium",
+ "tags": [
+  "row_number",
+  "cte"
+ ]
+}

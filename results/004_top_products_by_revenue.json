@@ -1,0 +1,24 @@
+{
+ "id": 4,
+ "slug": "top_products_by_revenue",
+ "difficulty": "easy",
+ "tags": [
+  "top-n"
+ ],
+ "status": "verified",
+ "attempts": 1,
+ "rows": 5,
+ "model_sql": "select p.product_id, p.product_name, sum(i.qty * i.unit_price) as revenue\nfrom {{ source('legacy', 'order_items') }} i join {{ source('legacy', 'products') }} p on p.product_id = i.product_id\ngroup by 1, 2 order by revenue desc, p.product_id limit 5\n",
+ "history": [
+  {
+   "attempt": 1,
+   "status": "match",
+   "detail": {
+    "equivalent": true,
+    "legacy_rows": 5,
+    "new_rows": 5,
+    "issues": []
+   }
+  }
+ ]
+}

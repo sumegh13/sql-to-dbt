@@ -1,0 +1,27 @@
+{
+ "id": 39,
+ "slug": "east_markup_update_delete",
+ "difficulty": "hard",
+ "tags": [
+  "update",
+  "delete",
+  "temp-tables",
+  "decimal-rounding"
+ ],
+ "status": "verified",
+ "attempts": 1,
+ "rows": 29,
+ "model_sql": "select o.order_id, o.customer_id,\n  case when c.region = 'East' then round(o.amount * 1.1, 2) else o.amount end as amount, o.status\nfrom {{ source('legacy', 'orders') }} o left join {{ source('legacy', 'customers') }} c on c.customer_id = o.customer_id\nwhere lower(o.status) <> 'cancelled'\n",
+ "history": [
+  {
+   "attempt": 1,
+   "status": "match",
+   "detail": {
+    "equivalent": true,
+    "legacy_rows": 29,
+    "new_rows": 29,
+    "issues": []
+   }
+  }
+ ]
+}

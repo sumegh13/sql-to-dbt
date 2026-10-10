@@ -1,0 +1,10 @@
+{
+ "id": 38,
+ "slug": "product_return_rate",
+ "proc": "dbo.usp_product_return_rate",
+ "output": "dbo.product_return_rate",
+ "difficulty": "medium",
+ "tags": [
+  "float-division"
+ ]
+}

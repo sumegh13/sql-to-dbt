@@ -1,0 +1,10 @@
+{
+ "id": 40,
+ "slug": "customer_scorecard",
+ "proc": "dbo.usp_customer_scorecard",
+ "output": "dbo.customer_scorecard",
+ "difficulty": "easy",
+ "tags": [
+  "conditional-aggregation"
+ ]
+}

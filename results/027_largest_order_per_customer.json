@@ -1,0 +1,25 @@
+{
+ "id": 27,
+ "slug": "largest_order_per_customer",
+ "difficulty": "medium",
+ "tags": [
+  "cross-apply",
+  "top-1"
+ ],
+ "status": "verified",
+ "attempts": 1,
+ "rows": 10,
+ "model_sql": "select customer_id, order_id, amount from {{ source('legacy', 'orders') }}\nqualify row_number() over (partition by customer_id order by amount desc, order_id) = 1\n",
+ "history": [
+  {
+   "attempt": 1,
+   "status": "match",
+   "detail": {
+    "equivalent": true,
+    "legacy_rows": 10,
+    "new_rows": 10,
+    "issues": []
+   }
+  }
+ ]
+}

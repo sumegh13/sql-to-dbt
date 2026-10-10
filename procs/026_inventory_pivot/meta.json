@@ -1,0 +1,10 @@
+{
+ "id": 26,
+ "slug": "inventory_pivot",
+ "proc": "dbo.usp_inventory_pivot",
+ "output": "dbo.inventory_pivot",
+ "difficulty": "medium",
+ "tags": [
+  "pivot"
+ ]
+}

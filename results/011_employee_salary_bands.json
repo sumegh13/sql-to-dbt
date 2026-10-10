@@ -1,0 +1,24 @@
+{
+ "id": 11,
+ "slug": "employee_salary_bands",
+ "difficulty": "easy",
+ "tags": [
+  "iif"
+ ],
+ "status": "verified",
+ "attempts": 1,
+ "rows": 10,
+ "model_sql": "select employee_id, emp_name, salary,\n  case when salary >= 120000 then 'senior' when salary >= 70000 then 'mid' else 'junior' end as band\nfrom {{ source('legacy', 'employees') }}\n",
+ "history": [
+  {
+   "attempt": 1,
+   "status": "match",
+   "detail": {
+    "equivalent": true,
+    "legacy_rows": 10,
+    "new_rows": 10,
+    "issues": []
+   }
+  }
+ ]
+}

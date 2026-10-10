@@ -1,0 +1,25 @@
+{
+ "id": 15,
+ "slug": "latest_product_price",
+ "difficulty": "medium",
+ "tags": [
+  "row_number",
+  "cte"
+ ],
+ "status": "verified",
+ "attempts": 1,
+ "rows": 10,
+ "model_sql": "select product_id, price, effective_date from (\n  select product_id, price, effective_date,\n         row_number() over (partition by product_id order by effective_date desc) as rn\n  from {{ source('legacy', 'price_history') }} where effective_date <= date '2025-12-31') r\nwhere rn = 1\n",
+ "history": [
+  {
+   "attempt": 1,
+   "status": "match",
+   "detail": {
+    "equivalent": true,
+    "legacy_rows": 10,
+    "new_rows": 10,
+    "issues": []
+   }
+  }
+ ]
+}

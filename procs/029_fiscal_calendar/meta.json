@@ -1,0 +1,12 @@
+{
+ "id": 29,
+ "slug": "fiscal_calendar",
+ "proc": "dbo.usp_fiscal_calendar",
+ "output": "dbo.fiscal_calendar",
+ "difficulty": "medium",
+ "tags": [
+  "eomonth",
+  "datename",
+  "modulo"
+ ]
+}

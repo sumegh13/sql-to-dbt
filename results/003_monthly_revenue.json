@@ -1,0 +1,25 @@
+{
+ "id": 3,
+ "slug": "monthly_revenue",
+ "difficulty": "easy",
+ "tags": [
+  "case-insensitive-collation",
+  "datepart"
+ ],
+ "status": "verified",
+ "attempts": 1,
+ "rows": 4,
+ "model_sql": "select year(order_date) as yr, month(order_date) as mo, sum(amount) as revenue\nfrom {{ source('legacy', 'orders') }} where lower(status) not in ('cancelled','returned') group by 1, 2\n",
+ "history": [
+  {
+   "attempt": 1,
+   "status": "match",
+   "detail": {
+    "equivalent": true,
+    "legacy_rows": 4,
+    "new_rows": 4,
+    "issues": []
+   }
+  }
+ ]
+}

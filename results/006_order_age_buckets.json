@@ -1,0 +1,24 @@
+{
+ "id": 6,
+ "slug": "order_age_buckets",
+ "difficulty": "easy",
+ "tags": [
+  "datediff"
+ ],
+ "status": "verified",
+ "attempts": 1,
+ "rows": 34,
+ "model_sql": "select order_id, date_diff('day', order_date, date '2025-12-31') as age_days,\n  case when date_diff('day', order_date, date '2025-12-31') <= 30 then '0-30'\n       when date_diff('day', order_date, date '2025-12-31') <= 90 then '31-90' else '90+' end as bucket\nfrom {{ source('legacy', 'orders') }}\n",
+ "history": [
+  {
+   "attempt": 1,
+   "status": "match",
+   "detail": {
+    "equivalent": true,
+    "legacy_rows": 34,
+    "new_rows": 34,
+    "issues": []
+   }
+  }
+ ]
+}

@@ -1,0 +1,10 @@
+{
+ "id": 18,
+ "slug": "temp_table_pipeline",
+ "proc": "dbo.usp_temp_table_pipeline",
+ "output": "dbo.temp_table_pipeline",
+ "difficulty": "medium",
+ "tags": [
+  "temp-tables"
+ ]
+}

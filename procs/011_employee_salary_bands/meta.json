@@ -1,0 +1,10 @@
+{
+ "id": 11,
+ "slug": "employee_salary_bands",
+ "proc": "dbo.usp_employee_salary_bands",
+ "output": "dbo.employee_salary_bands",
+ "difficulty": "easy",
+ "tags": [
+  "iif"
+ ]
+}

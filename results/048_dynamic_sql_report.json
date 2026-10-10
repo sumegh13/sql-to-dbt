@@ -1,0 +1,13 @@
+{
+ "id": 48,
+ "slug": "dynamic_sql_report",
+ "difficulty": "human",
+ "tags": [
+  "dynamic-sql"
+ ],
+ "status": "needs_human",
+ "reason_category": "dynamic_sql",
+ "reason": "Builds SQL at runtime; the real query shape is only known by executing it. Needs a human to pin down the intended static SQL.",
+ "attempts": 0,
+ "history": []
+}

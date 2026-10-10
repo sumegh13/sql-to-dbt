@@ -1,0 +1,6 @@
+
+  
+  create view "warehouse"."main"."customer_email_domains__dbt_tmp" as (
+    select split_part(email, '@', 2) as domain, count(*) as customers
+from "warehouse"."legacy"."customers" where email is not null group by 1
+  );

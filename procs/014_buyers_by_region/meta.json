@@ -1,0 +1,11 @@
+{
+ "id": 14,
+ "slug": "buyers_by_region",
+ "proc": "dbo.usp_buyers_by_region",
+ "output": "dbo.buyers_by_region",
+ "difficulty": "easy",
+ "tags": [
+  "count-distinct",
+  "null-group"
+ ]
+}

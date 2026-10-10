@@ -1,0 +1,24 @@
+{
+ "id": 17,
+ "slug": "order_rank_per_customer",
+ "difficulty": "medium",
+ "tags": [
+  "window-ranking"
+ ],
+ "status": "verified",
+ "attempts": 1,
+ "rows": 34,
+ "model_sql": "select order_id, customer_id, amount,\n  row_number() over (partition by customer_id order by amount desc, order_id) as rn,\n  rank() over (partition by customer_id order by amount desc) as rnk,\n  dense_rank() over (partition by customer_id order by amount desc) as drnk\nfrom {{ source('legacy', 'orders') }}\n",
+ "history": [
+  {
+   "attempt": 1,
+   "status": "match",
+   "detail": {
+    "equivalent": true,
+    "legacy_rows": 34,
+    "new_rows": 34,
+    "issues": []
+   }
+  }
+ ]
+}

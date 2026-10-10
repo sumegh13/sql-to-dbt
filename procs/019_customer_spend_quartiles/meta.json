@@ -1,0 +1,11 @@
+{
+ "id": 19,
+ "slug": "customer_spend_quartiles",
+ "proc": "dbo.usp_customer_spend_quartiles",
+ "output": "dbo.customer_spend_quartiles",
+ "difficulty": "medium",
+ "tags": [
+  "ntile",
+  "cte"
+ ]
+}

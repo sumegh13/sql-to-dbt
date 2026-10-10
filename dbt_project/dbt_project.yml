@@ -1,0 +1,4 @@
+name: migrated
+version: "1.0"
+profile: migrated
+model-paths: ["models"]

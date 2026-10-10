@@ -1,0 +1,10 @@
+{
+ "id": 47,
+ "slug": "product_cross_sell",
+ "proc": "dbo.usp_product_cross_sell",
+ "output": "dbo.product_cross_sell",
+ "difficulty": "medium",
+ "tags": [
+  "self-join"
+ ]
+}

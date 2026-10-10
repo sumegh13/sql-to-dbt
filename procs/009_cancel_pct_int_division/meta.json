@@ -1,0 +1,10 @@
+{
+ "id": 9,
+ "slug": "cancel_pct_int_division",
+ "proc": "dbo.usp_cancel_pct_int_division",
+ "output": "dbo.cancel_pct_int_division",
+ "difficulty": "medium",
+ "tags": [
+  "integer-division"
+ ]
+}

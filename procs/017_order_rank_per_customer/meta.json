@@ -1,0 +1,10 @@
+{
+ "id": 17,
+ "slug": "order_rank_per_customer",
+ "proc": "dbo.usp_order_rank_per_customer",
+ "output": "dbo.order_rank_per_customer",
+ "difficulty": "medium",
+ "tags": [
+  "window-ranking"
+ ]
+}

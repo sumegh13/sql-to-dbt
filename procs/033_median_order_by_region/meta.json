@@ -1,0 +1,10 @@
+{
+ "id": 33,
+ "slug": "median_order_by_region",
+ "proc": "dbo.usp_median_order_by_region",
+ "output": "dbo.median_order_by_region",
+ "difficulty": "medium",
+ "tags": [
+  "percentile_cont"
+ ]
+}

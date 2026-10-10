@@ -1,0 +1,13 @@
+{
+ "id": 49,
+ "slug": "random_audit_sample",
+ "difficulty": "human",
+ "tags": [
+  "nondeterministic"
+ ],
+ "status": "needs_human",
+ "reason_category": "nondeterministic",
+ "reason": "Output depends on time/randomness, so old-vs-new equivalence can't be proven row by row.",
+ "attempts": 0,
+ "history": []
+}

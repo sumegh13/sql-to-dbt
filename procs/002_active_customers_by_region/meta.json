@@ -1,0 +1,11 @@
+{
+ "id": 2,
+ "slug": "active_customers_by_region",
+ "proc": "dbo.usp_active_customers_by_region",
+ "output": "dbo.active_customers_by_region",
+ "difficulty": "easy",
+ "tags": [
+  "isnull",
+  "group-by"
+ ]
+}

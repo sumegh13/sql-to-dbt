@@ -1,0 +1,12 @@
+{
+ "id": 43,
+ "slug": "payment_balance_cursor",
+ "proc": "dbo.usp_payment_balance_cursor",
+ "output": "dbo.payment_balance_cursor",
+ "difficulty": "hard",
+ "tags": [
+  "cursor",
+  "running-total",
+  "control-break"
+ ]
+}

@@ -1,0 +1,11 @@
+{
+ "id": 25,
+ "slug": "status_pivot",
+ "proc": "dbo.usp_status_pivot",
+ "output": "dbo.status_pivot",
+ "difficulty": "medium",
+ "tags": [
+  "pivot",
+  "case-insensitive-collation"
+ ]
+}

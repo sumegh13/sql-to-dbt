@@ -1,0 +1,10 @@
+{
+ "id": 4,
+ "slug": "top_products_by_revenue",
+ "proc": "dbo.usp_top_products_by_revenue",
+ "output": "dbo.top_products_by_revenue",
+ "difficulty": "easy",
+ "tags": [
+  "top-n"
+ ]
+}

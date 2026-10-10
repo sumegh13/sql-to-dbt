@@ -1,0 +1,24 @@
+{
+ "id": 26,
+ "slug": "inventory_pivot",
+ "difficulty": "medium",
+ "tags": [
+  "pivot"
+ ],
+ "status": "verified",
+ "attempts": 1,
+ "rows": 10,
+ "model_sql": "select product_id,\n  coalesce(sum(qty_on_hand) filter (where warehouse = 'A'), 0) as wh_a,\n  coalesce(sum(qty_on_hand) filter (where warehouse = 'B'), 0) as wh_b\nfrom {{ source('legacy', 'inventory') }} group by product_id\n",
+ "history": [
+  {
+   "attempt": 1,
+   "status": "match",
+   "detail": {
+    "equivalent": true,
+    "legacy_rows": 10,
+    "new_rows": 10,
+    "issues": []
+   }
+  }
+ ]
+}

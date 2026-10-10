@@ -1,0 +1,24 @@
+{
+ "id": 38,
+ "slug": "product_return_rate",
+ "difficulty": "medium",
+ "tags": [
+  "float-division"
+ ],
+ "status": "verified",
+ "attempts": 1,
+ "rows": 10,
+ "model_sql": "select p.product_id, p.product_name, count(*) as line_count,\n  sum(case when lower(o.status) = 'returned' then 1 else 0 end) as returned_lines,\n  cast(sum(case when lower(o.status) = 'returned' then 1 else 0 end) as double) / count(*) as return_rate\nfrom {{ source('legacy', 'order_items') }} i join {{ source('legacy', 'orders') }} o on o.order_id = i.order_id\njoin {{ source('legacy', 'products') }} p on p.product_id = i.product_id group by 1, 2\n",
+ "history": [
+  {
+   "attempt": 1,
+   "status": "match",
+   "detail": {
+    "equivalent": true,
+    "legacy_rows": 10,
+    "new_rows": 10,
+    "issues": []
+   }
+  }
+ ]
+}

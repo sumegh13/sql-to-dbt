@@ -1,0 +1,13 @@
+{
+ "id": 39,
+ "slug": "east_markup_update_delete",
+ "proc": "dbo.usp_east_markup_update_delete",
+ "output": "dbo.east_markup_update_delete",
+ "difficulty": "hard",
+ "tags": [
+  "update",
+  "delete",
+  "temp-tables",
+  "decimal-rounding"
+ ]
+}

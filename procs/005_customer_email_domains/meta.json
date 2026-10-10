@@ -1,0 +1,10 @@
+{
+ "id": 5,
+ "slug": "customer_email_domains",
+ "proc": "dbo.usp_customer_email_domains",
+ "output": "dbo.customer_email_domains",
+ "difficulty": "easy",
+ "tags": [
+  "string-functions"
+ ]
+}

@@ -1,0 +1,24 @@
+{
+ "id": 8,
+ "slug": "avg_item_by_category",
+ "difficulty": "medium",
+ "tags": [
+  "decimal-avg"
+ ],
+ "status": "verified",
+ "attempts": 1,
+ "rows": 3,
+ "model_sql": "select p.category, avg(i.qty * i.unit_price) as avg_line_value, count(*) as line_count\nfrom {{ source('legacy', 'order_items') }} i join {{ source('legacy', 'products') }} p on p.product_id = i.product_id group by 1\n",
+ "history": [
+  {
+   "attempt": 1,
+   "status": "match",
+   "detail": {
+    "equivalent": true,
+    "legacy_rows": 3,
+    "new_rows": 3,
+    "issues": []
+   }
+  }
+ ]
+}

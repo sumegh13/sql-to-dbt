@@ -1,0 +1,10 @@
+{
+ "id": 44,
+ "slug": "region_isnull_truncation",
+ "proc": "dbo.usp_region_isnull_truncation",
+ "output": "dbo.region_isnull_truncation",
+ "difficulty": "hard",
+ "tags": [
+  "isnull-type-truncation"
+ ]
+}

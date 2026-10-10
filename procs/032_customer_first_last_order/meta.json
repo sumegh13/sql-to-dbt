@@ -1,0 +1,12 @@
+{
+ "id": 32,
+ "slug": "customer_first_last_order",
+ "proc": "dbo.usp_customer_first_last_order",
+ "output": "dbo.customer_first_last_order",
+ "difficulty": "medium",
+ "tags": [
+  "first_value",
+  "last_value",
+  "window-frame"
+ ]
+}

@@ -1,0 +1,25 @@
+{
+ "id": 2,
+ "slug": "active_customers_by_region",
+ "difficulty": "easy",
+ "tags": [
+  "isnull",
+  "group-by"
+ ],
+ "status": "verified",
+ "attempts": 1,
+ "rows": 5,
+ "model_sql": "select coalesce(region, 'Unknown') as region, count(*) as customer_count\nfrom {{ source('legacy', 'customers') }} where is_active = 1 group by 1\n",
+ "history": [
+  {
+   "attempt": 1,
+   "status": "match",
+   "detail": {
+    "equivalent": true,
+    "legacy_rows": 5,
+    "new_rows": 5,
+    "issues": []
+   }
+  }
+ ]
+}

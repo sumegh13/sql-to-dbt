@@ -1,0 +1,11 @@
+{
+ "id": 36,
+ "slug": "customer_name_cleanup",
+ "proc": "dbo.usp_customer_name_cleanup",
+ "output": "dbo.customer_name_cleanup",
+ "difficulty": "medium",
+ "tags": [
+  "string-functions",
+  "null-concat"
+ ]
+}

@@ -1,0 +1,10 @@
+{
+ "id": 50,
+ "slug": "archive_and_purge",
+ "proc": "dbo.usp_archive_and_purge",
+ "output": "dbo.archive_and_purge",
+ "difficulty": "human",
+ "tags": [
+  "mutates-source"
+ ]
+}

@@ -1,0 +1,24 @@
+{
+ "id": 44,
+ "slug": "region_isnull_truncation",
+ "difficulty": "hard",
+ "tags": [
+  "isnull-type-truncation"
+ ],
+ "status": "verified",
+ "attempts": 1,
+ "rows": 12,
+ "model_sql": "select customer_id,\n  coalesce(region, left('Not_Assigned_Yet', 10)) as region_isnull,\n  coalesce(region, 'Not_Assigned_Yet') as region_coalesce\nfrom {{ source('legacy', 'customers') }}\n",
+ "history": [
+  {
+   "attempt": 1,
+   "status": "match",
+   "detail": {
+    "equivalent": true,
+    "legacy_rows": 12,
+    "new_rows": 12,
+    "issues": []
+   }
+  }
+ ]
+}

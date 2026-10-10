@@ -1,0 +1,26 @@
+{
+ "id": 46,
+ "slug": "dept_salary_rank",
+ "difficulty": "medium",
+ "tags": [
+  "dense_rank",
+  "window-sum",
+  "decimal-cast"
+ ],
+ "status": "verified",
+ "attempts": 1,
+ "rows": 10,
+ "model_sql": "select employee_id, emp_name, department, salary,\n  dense_rank() over (partition by department order by salary desc) as dept_rank,\n  cast(salary * 100.0 / sum(salary) over (partition by department) as decimal(5,2)) as pct_of_dept\nfrom {{ source('legacy', 'employees') }}\n",
+ "history": [
+  {
+   "attempt": 1,
+   "status": "match",
+   "detail": {
+    "equivalent": true,
+    "legacy_rows": 10,
+    "new_rows": 10,
+    "issues": []
+   }
+  }
+ ]
+}

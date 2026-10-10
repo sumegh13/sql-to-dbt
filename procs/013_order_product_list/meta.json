@@ -1,0 +1,10 @@
+{
+ "id": 13,
+ "slug": "order_product_list",
+ "proc": "dbo.usp_order_product_list",
+ "output": "dbo.order_product_list",
+ "difficulty": "medium",
+ "tags": [
+  "string_agg"
+ ]
+}

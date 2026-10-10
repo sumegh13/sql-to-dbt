@@ -1,0 +1,11 @@
+{
+ "id": 16,
+ "slug": "running_total_cursor",
+ "proc": "dbo.usp_running_total_cursor",
+ "output": "dbo.running_total_cursor",
+ "difficulty": "hard",
+ "tags": [
+  "cursor",
+  "running-total"
+ ]
+}

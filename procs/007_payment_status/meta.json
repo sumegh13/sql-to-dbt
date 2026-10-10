@@ -1,0 +1,10 @@
+{
+ "id": 7,
+ "slug": "payment_status",
+ "proc": "dbo.usp_payment_status",
+ "output": "dbo.payment_status",
+ "difficulty": "easy",
+ "tags": [
+  "left-join"
+ ]
+}

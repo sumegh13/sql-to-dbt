@@ -1,0 +1,24 @@
+{
+ "id": 40,
+ "slug": "customer_scorecard",
+ "difficulty": "easy",
+ "tags": [
+  "conditional-aggregation"
+ ],
+ "status": "verified",
+ "attempts": 1,
+ "rows": 12,
+ "model_sql": "select c.customer_id,\n  sum(case when lower(o.status) = 'shipped' then o.amount else 0 end) as shipped_amt,\n  sum(case when lower(o.status) = 'pending' then o.amount else 0 end) as pending_amt,\n  sum(case when lower(o.status) = 'cancelled' then o.amount else 0 end) as cancelled_amt,\n  max(o.order_date) as last_order, count(o.order_id) as orders\nfrom {{ source('legacy', 'customers') }} c left join {{ source('legacy', 'orders') }} o on o.customer_id = c.customer_id group by c.customer_id\n",
+ "history": [
+  {
+   "attempt": 1,
+   "status": "match",
+   "detail": {
+    "equivalent": true,
+    "legacy_rows": 12,
+    "new_rows": 12,
+    "issues": []
+   }
+  }
+ ]
+}

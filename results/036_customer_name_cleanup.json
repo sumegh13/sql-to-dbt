@@ -1,0 +1,25 @@
+{
+ "id": 36,
+ "slug": "customer_name_cleanup",
+ "difficulty": "medium",
+ "tags": [
+  "string-functions",
+  "null-concat"
+ ],
+ "status": "verified",
+ "attempts": 1,
+ "rows": 12,
+ "model_sql": "select customer_id, upper(trim(customer_name)) as clean_name, left(ltrim(customer_name), 1) as initial,\n  customer_name || ' <' || email || '>' as display,\n  replace(lower(trim(customer_name)), ' ', '_') as slug, length(rtrim(customer_name)) as name_len\nfrom {{ source('legacy', 'customers') }}\n",
+ "history": [
+  {
+   "attempt": 1,
+   "status": "match",
+   "detail": {
+    "equivalent": true,
+    "legacy_rows": 12,
+    "new_rows": 12,
+    "issues": []
+   }
+  }
+ ]
+}

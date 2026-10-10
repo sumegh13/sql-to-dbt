@@ -1,0 +1,10 @@
+{
+ "id": 49,
+ "slug": "random_audit_sample",
+ "proc": "dbo.usp_random_audit_sample",
+ "output": "dbo.random_audit_sample",
+ "difficulty": "human",
+ "tags": [
+  "nondeterministic"
+ ]
+}

@@ -1,0 +1,11 @@
+{
+ "id": 42,
+ "slug": "rolling_30d_revenue",
+ "proc": "dbo.usp_rolling_30d_revenue",
+ "output": "dbo.rolling_30d_revenue",
+ "difficulty": "hard",
+ "tags": [
+  "correlated-subquery",
+  "date-window"
+ ]
+}

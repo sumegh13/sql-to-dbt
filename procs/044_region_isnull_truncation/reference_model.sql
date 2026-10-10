@@ -1,0 +1,4 @@
+select customer_id,
+  coalesce(region, left('Not_Assigned_Yet', 10)) as region_isnull,
+  coalesce(region, 'Not_Assigned_Yet') as region_coalesce
+from {{ source('legacy', 'customers') }}

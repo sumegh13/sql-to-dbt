@@ -1,0 +1,11 @@
+{
+ "id": 12,
+ "slug": "inventory_low_stock",
+ "proc": "dbo.usp_inventory_low_stock",
+ "output": "dbo.inventory_low_stock",
+ "difficulty": "easy",
+ "tags": [
+  "left-join",
+  "iif"
+ ]
+}

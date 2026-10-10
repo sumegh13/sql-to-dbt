@@ -1,0 +1,10 @@
+{
+ "id": 48,
+ "slug": "dynamic_sql_report",
+ "proc": "dbo.usp_dynamic_sql_report",
+ "output": "dbo.dynamic_sql_report",
+ "difficulty": "human",
+ "tags": [
+  "dynamic-sql"
+ ]
+}

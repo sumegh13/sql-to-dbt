@@ -1,0 +1,11 @@
+{
+ "id": 20,
+ "slug": "merge_customer_dim",
+ "proc": "dbo.usp_merge_customer_dim",
+ "output": "dbo.merge_customer_dim",
+ "difficulty": "hard",
+ "tags": [
+  "merge",
+  "upsert"
+ ]
+}

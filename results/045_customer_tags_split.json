@@ -1,0 +1,25 @@
+{
+ "id": 45,
+ "slug": "customer_tags_split",
+ "difficulty": "medium",
+ "tags": [
+  "string_split",
+  "cross-apply"
+ ],
+ "status": "verified",
+ "attempts": 1,
+ "rows": 14,
+ "model_sql": "select customer_id, trim(t) as tag from (\n  select customer_id, unnest(string_split(tags, ',')) as t from {{ source('legacy', 'customers') }} where tags is not null) x\n",
+ "history": [
+  {
+   "attempt": 1,
+   "status": "match",
+   "detail": {
+    "equivalent": true,
+    "legacy_rows": 14,
+    "new_rows": 14,
+    "issues": []
+   }
+  }
+ ]
+}

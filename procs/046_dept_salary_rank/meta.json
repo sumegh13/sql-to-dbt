@@ -1,0 +1,12 @@
+{
+ "id": 46,
+ "slug": "dept_salary_rank",
+ "proc": "dbo.usp_dept_salary_rank",
+ "output": "dbo.dept_salary_rank",
+ "difficulty": "medium",
+ "tags": [
+  "dense_rank",
+  "window-sum",
+  "decimal-cast"
+ ]
+}

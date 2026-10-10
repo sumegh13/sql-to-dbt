@@ -1,0 +1,6 @@
+migrated:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: target/warehouse.duckdb

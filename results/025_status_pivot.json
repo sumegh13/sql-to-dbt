@@ -1,0 +1,25 @@
+{
+ "id": 25,
+ "slug": "status_pivot",
+ "difficulty": "medium",
+ "tags": [
+  "pivot",
+  "case-insensitive-collation"
+ ],
+ "status": "verified",
+ "attempts": 1,
+ "rows": 10,
+ "model_sql": "select customer_id,\n  count(*) filter (where lower(status) = 'shipped') as shipped,\n  count(*) filter (where lower(status) = 'pending') as pending,\n  count(*) filter (where lower(status) = 'cancelled') as cancelled\nfrom {{ source('legacy', 'orders') }} group by customer_id\n",
+ "history": [
+  {
+   "attempt": 1,
+   "status": "match",
+   "detail": {
+    "equivalent": true,
+    "legacy_rows": 10,
+    "new_rows": 10,
+    "issues": []
+   }
+  }
+ ]
+}

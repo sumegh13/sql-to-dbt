@@ -1,0 +1,10 @@
+{
+ "id": 28,
+ "slug": "legacy_code_cleanup",
+ "proc": "dbo.usp_legacy_code_cleanup",
+ "output": "dbo.legacy_code_cleanup",
+ "difficulty": "easy",
+ "tags": [
+  "try_cast"
+ ]
+}

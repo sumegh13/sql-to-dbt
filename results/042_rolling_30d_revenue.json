@@ -1,0 +1,25 @@
+{
+ "id": 42,
+ "slug": "rolling_30d_revenue",
+ "difficulty": "hard",
+ "tags": [
+  "correlated-subquery",
+  "date-window"
+ ],
+ "status": "verified",
+ "attempts": 1,
+ "rows": 27,
+ "model_sql": "select d.order_date, sum(o2.amount) as rolling_30d\nfrom (select distinct order_date from {{ source('legacy', 'orders') }}) d\nleft join {{ source('legacy', 'orders') }} o2 on o2.order_date > d.order_date - 30 and o2.order_date <= d.order_date\n  and lower(o2.status) not in ('cancelled','returned')\ngroup by d.order_date\n",
+ "history": [
+  {
+   "attempt": 1,
+   "status": "match",
+   "detail": {
+    "equivalent": true,
+    "legacy_rows": 27,
+    "new_rows": 27,
+    "issues": []
+   }
+  }
+ ]
+}

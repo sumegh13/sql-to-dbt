@@ -1,0 +1,25 @@
+{
+ "id": 19,
+ "slug": "customer_spend_quartiles",
+ "difficulty": "medium",
+ "tags": [
+  "ntile",
+  "cte"
+ ],
+ "status": "verified",
+ "attempts": 1,
+ "rows": 8,
+ "model_sql": "with s as (select customer_id, sum(amount) as spend from {{ source('legacy', 'orders') }}\n           where lower(status) not in ('cancelled','returned') group by customer_id)\nselect customer_id, spend, ntile(4) over (order by spend desc, customer_id) as quartile from s\n",
+ "history": [
+  {
+   "attempt": 1,
+   "status": "match",
+   "detail": {
+    "equivalent": true,
+    "legacy_rows": 8,
+    "new_rows": 8,
+    "issues": []
+   }
+  }
+ ]
+}

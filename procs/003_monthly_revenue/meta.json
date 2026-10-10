@@ -1,0 +1,11 @@
+{
+ "id": 3,
+ "slug": "monthly_revenue",
+ "proc": "dbo.usp_monthly_revenue",
+ "output": "dbo.monthly_revenue",
+ "difficulty": "easy",
+ "tags": [
+  "case-insensitive-collation",
+  "datepart"
+ ]
+}

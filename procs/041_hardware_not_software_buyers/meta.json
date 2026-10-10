@@ -1,0 +1,10 @@
+{
+ "id": 41,
+ "slug": "hardware_not_software_buyers",
+ "proc": "dbo.usp_hardware_not_software_buyers",
+ "output": "dbo.hardware_not_software_buyers",
+ "difficulty": "easy",
+ "tags": [
+  "except"
+ ]
+}

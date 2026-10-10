@@ -1,0 +1,26 @@
+{
+ "id": 35,
+ "slug": "mom_growth",
+ "difficulty": "hard",
+ "tags": [
+  "lag",
+  "nullif",
+  "decimal-rounding"
+ ],
+ "status": "verified",
+ "attempts": 1,
+ "rows": 4,
+ "model_sql": "with m as (select year(order_date) as yr, month(order_date) as mo, sum(amount) as rev from {{ source('legacy', 'orders') }}\n           where lower(status) not in ('cancelled','returned') group by 1, 2)\nselect yr, mo, rev, lag(rev) over (order by yr, mo) as prev_rev,\n  round((rev - lag(rev) over (order by yr, mo)) * 100.0 / nullif(lag(rev) over (order by yr, mo), 0), 2) as growth_pct\nfrom m\n",
+ "history": [
+  {
+   "attempt": 1,
+   "status": "match",
+   "detail": {
+    "equivalent": true,
+    "legacy_rows": 4,
+    "new_rows": 4,
+    "issues": []
+   }
+  }
+ ]
+}

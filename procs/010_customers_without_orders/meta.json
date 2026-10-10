@@ -1,0 +1,10 @@
+{
+ "id": 10,
+ "slug": "customers_without_orders",
+ "proc": "dbo.usp_customers_without_orders",
+ "output": "dbo.customers_without_orders",
+ "difficulty": "easy",
+ "tags": [
+  "not-exists"
+ ]
+}

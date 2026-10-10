@@ -1,0 +1,10 @@
+{
+ "id": 8,
+ "slug": "avg_item_by_category",
+ "proc": "dbo.usp_avg_item_by_category",
+ "output": "dbo.avg_item_by_category",
+ "difficulty": "medium",
+ "tags": [
+  "decimal-avg"
+ ]
+}
