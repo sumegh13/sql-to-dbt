@@ -3,7 +3,10 @@
   "dockerComposeFile": "docker-compose.yml",
   "service": "app",
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
-  "hostRequirements": { "cpus": 2, "memory": "8gb" },
+  "hostRequirements": {
+    "cpus": 2,
+    "memory": "8gb"
+  },
   "containerEnv": {
     "HOST": "0.0.0.0",
     "MSSQL_HOST": "mssql",
@@ -15,14 +18,27 @@
       "description": "Optional. Your Anthropic API key, used to translate procedures. You can also paste a key into the app instead."
     }
   },
-  "forwardPorts": [8000],
+  "forwardPorts": [
+    8000
+  ],
   "portsAttributes": {
-    "8000": { "label": "Migration app", "onAutoForward": "openBrowser" }
+    "8000": {
+      "label": "Migration app",
+      "onAutoForward": "openBrowser"
+    }
   },
   "postCreateCommand": "pip install --user --quiet uv && ~/.local/bin/uv sync",
-  "postStartCommand": "setsid nohup ~/.local/bin/uv run python -m app > /tmp/app.log 2>&1 &",
   "customizations": {
-    "codespaces": { "openFiles": ["README.md"] },
-    "vscode": { "extensions": ["ms-python.python"] }
-  }
+    "codespaces": {
+      "openFiles": [
+        "README.md"
+      ]
+    },
+    "vscode": {
+      "extensions": [
+        "ms-python.python"
+      ]
+    }
+  },
+  "postAttachCommand": "bash .devcontainer/start.sh"
 }

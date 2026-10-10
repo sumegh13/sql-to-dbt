@@ -39,6 +39,8 @@ Click **Open in GitHub Codespaces** above. GitHub starts the app and a SQL Serve
 
 Any script layout works: SSMS "Generate Scripts" output, one procedure per file, or mixed files. Include the `CREATE TABLE` scripts for the tables your procedures use. If you include `INSERT` scripts, they are used as test data; otherwise test data is generated from the table definitions. A SQL Server connection is read-only and must be reachable from the Codespace.
 
+If the app tab shows a 502 or doesn't load, run `bash .devcontainer/start.sh` in the Codespace terminal. It restarts the app and logs to `/tmp/app.log`.
+
 Stop the Codespace when you're done (GitHub stops idle ones automatically) so it doesn't use your free hours.
 
 ## Quick start
