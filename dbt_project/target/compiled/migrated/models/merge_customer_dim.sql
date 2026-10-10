@@ -1,5 +1,37 @@
-select coalesce(s.customer_id, t.customer_id) as customer_id,
-  case when s.customer_id is not null then s.customer_name else t.customer_name end as customer_name,
-  case when s.customer_id is not null then s.region else t.region end as region,
-  coalesce(s.email, t.email) as email
-from "warehouse"."legacy"."customers" t full outer join "warehouse"."legacy"."customer_staging" s on t.customer_id = s.customer_id
+WITH target AS (
+    SELECT customer_id, customer_name, region, email
+    FROM "warehouse"."legacy"."customers"
+),
+staging AS (
+    SELECT customer_id, customer_name, region, email
+    FROM "warehouse"."legacy"."customer_staging"
+),
+matched AS (
+    SELECT
+        t.customer_id,
+        s.customer_name,
+        s.region,
+        COALESCE(s.email, t.email) AS email
+    FROM target t
+    INNER JOIN staging s
+        ON t.customer_id = s.customer_id
+),
+unmatched_target AS (
+    SELECT t.customer_id, t.customer_name, t.region, t.email
+    FROM target t
+    WHERE NOT EXISTS (
+        SELECT 1 FROM staging s WHERE s.customer_id = t.customer_id
+    )
+),
+inserted AS (
+    SELECT s.customer_id, s.customer_name, s.region, s.email
+    FROM staging s
+    WHERE NOT EXISTS (
+        SELECT 1 FROM target t WHERE t.customer_id = s.customer_id
+    )
+)
+SELECT customer_id, customer_name, region, email FROM matched
+UNION ALL
+SELECT customer_id, customer_name, region, email FROM unmatched_target
+UNION ALL
+SELECT customer_id, customer_name, region, email FROM inserted

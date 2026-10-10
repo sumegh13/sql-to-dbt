@@ -6,12 +6,43 @@
   "percentile_cont"
  ],
  "status": "verified",
- "attempts": 1,
+ "attempts": 2,
  "rows": 5,
- "model_sql": "select c.region, quantile_cont(cast(o.amount as double), 0.5) as median_amount\nfrom {{ source('legacy', 'orders') }} o join {{ source('legacy', 'customers') }} c on c.customer_id = o.customer_id group by c.region\n",
+ "model_sql": "SELECT\n    MIN(c.region) AS region,\n    QUANTILE_CONT(CAST(o.amount AS DOUBLE), 0.5) AS median_amount\nFROM {{ source('legacy', 'orders') }} o\nJOIN {{ source('legacy', 'customers') }} c\n    ON c.customer_id = o.customer_id\nGROUP BY UPPER(RTRIM(c.region))",
  "history": [
   {
    "attempt": 1,
+   "sql": "SELECT\n    MIN(c.region) AS region,\n    CAST(QUANTILE_CONT(CAST(o.amount AS DOUBLE), 0.5) AS DECIMAL(18,2)) AS median_amount\nFROM {{ source('legacy', 'orders') }} o\nJOIN {{ source('legacy', 'customers') }} c\n    ON c.customer_id = o.customer_id\nGROUP BY UPPER(RTRIM(c.region))",
+   "status": "diff",
+   "detail": {
+    "equivalent": false,
+    "legacy_rows": 5,
+    "new_rows": 5,
+    "issues": [
+     {
+      "in_legacy_not_new": [
+       [
+        "West",
+        99.875
+       ]
+      ],
+      "count": 1
+     },
+     {
+      "in_new_not_legacy": [
+       [
+        "West",
+        99.88
+       ]
+      ],
+      "count": 1
+     }
+    ]
+   }
+  },
+  {
+   "attempt": 2,
+   "sql": "SELECT\n    MIN(c.region) AS region,\n    QUANTILE_CONT(CAST(o.amount AS DOUBLE), 0.5) AS median_amount\nFROM {{ source('legacy', 'orders') }} o\nJOIN {{ source('legacy', 'customers') }} c\n    ON c.customer_id = o.customer_id\nGROUP BY UPPER(RTRIM(c.region))",
    "status": "match",
    "detail": {
     "equivalent": true,
@@ -20,5 +51,25 @@
     "issues": []
    }
   }
- ]
+ ],
+ "explanation": "This procedure calculates the median order amount for each customer region. It joins every order to its customer, groups the orders by region, and stores one median value per region in a table. Regions are matched without regard to letter case or trailing spaces, as SQL Server's default collation does.",
+ "llm_calls": [
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 1497,
+   "output_tokens": 1867,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.001083
+  },
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 1857,
+   "output_tokens": 2047,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.001209
+  }
+ ],
+ "cost_usd": 0.002292
 }

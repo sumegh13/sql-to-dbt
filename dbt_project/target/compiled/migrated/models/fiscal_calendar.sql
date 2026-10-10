@@ -1,5 +1,10 @@
-select order_id, order_date, last_day(order_date) as month_end,
-  case when month(order_date) >= 4 then year(order_date) + 1 else year(order_date) end as fiscal_year,
-  ((month(order_date) + 8) % 12) // 3 + 1 as fiscal_qtr,
-  dayname(order_date) as dow
-from "warehouse"."legacy"."orders"
+SELECT
+  order_id,
+  order_date,
+  last_day(order_date) AS month_end,
+  CAST(CASE WHEN EXTRACT(MONTH FROM order_date) >= 4
+            THEN EXTRACT(YEAR FROM order_date) + 1
+            ELSE EXTRACT(YEAR FROM order_date) END AS INTEGER) AS fiscal_year,
+  CAST(((EXTRACT(MONTH FROM order_date) + 8) % 12) // 3 + 1 AS INTEGER) AS fiscal_qtr,
+  strftime(order_date, '%A') AS dow
+FROM "warehouse"."legacy"."orders"

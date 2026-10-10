@@ -11,10 +11,11 @@
  "status": "verified",
  "attempts": 1,
  "rows": 29,
- "model_sql": "select o.order_id, o.customer_id,\n  case when c.region = 'East' then round(o.amount * 1.1, 2) else o.amount end as amount, o.status\nfrom {{ source('legacy', 'orders') }} o left join {{ source('legacy', 'customers') }} c on c.customer_id = o.customer_id\nwhere lower(o.status) <> 'cancelled'\n",
+ "model_sql": "WITH east_customers AS (\n    SELECT DISTINCT customer_id\n    FROM {{ source('legacy', 'customers') }}\n    WHERE lower(rtrim(region)) = 'east'\n      AND customer_id IS NOT NULL\n)\nSELECT\n    o.order_id,\n    o.customer_id,\n    CASE\n        WHEN ec.customer_id IS NOT NULL\n            THEN CAST(o.amount * 1.1 AS DECIMAL(18,2))\n        ELSE o.amount\n    END AS amount,\n    o.status\nFROM {{ source('legacy', 'orders') }} o\nLEFT JOIN east_customers ec\n    ON ec.customer_id = o.customer_id\nWHERE o.status IS NULL\n   OR lower(rtrim(o.status)) <> 'cancelled'",
  "history": [
   {
    "attempt": 1,
+   "sql": "WITH east_customers AS (\n    SELECT DISTINCT customer_id\n    FROM {{ source('legacy', 'customers') }}\n    WHERE lower(rtrim(region)) = 'east'\n      AND customer_id IS NOT NULL\n)\nSELECT\n    o.order_id,\n    o.customer_id,\n    CASE\n        WHEN ec.customer_id IS NOT NULL\n            THEN CAST(o.amount * 1.1 AS DECIMAL(18,2))\n        ELSE o.amount\n    END AS amount,\n    o.status\nFROM {{ source('legacy', 'orders') }} o\nLEFT JOIN east_customers ec\n    ON ec.customer_id = o.customer_id\nWHERE o.status IS NULL\n   OR lower(rtrim(o.status)) <> 'cancelled'",
    "status": "match",
    "detail": {
     "equivalent": true,
@@ -23,5 +24,17 @@
     "issues": []
    }
   }
- ]
+ ],
+ "explanation": "This procedure copies every order into a working table, raises the amount by 10% for orders placed by customers whose region is East, and then removes orders with status 'cancelled'. The result is saved as a snapshot table of the remaining orders with their adjusted amounts. The model matches T-SQL's case-insensitive, trailing-space-insensitive comparisons for region and status, and it keeps orders with a NULL status because a NULL never matches 'cancelled' in SQL Server.",
+ "llm_calls": [
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 1535,
+   "output_tokens": 1993,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.00115
+  }
+ ],
+ "cost_usd": 0.00115
 }

@@ -1,3 +1,9 @@
-select a.product_id as product_a, b.product_id as product_b, count(distinct a.order_id) as together
-from "warehouse"."legacy"."order_items" a join "warehouse"."legacy"."order_items" b on a.order_id = b.order_id and a.product_id < b.product_id
-group by 1, 2
+SELECT
+    a.product_id AS product_a,
+    b.product_id AS product_b,
+    COUNT(DISTINCT a.order_id) AS together
+FROM "warehouse"."legacy"."order_items" AS a
+JOIN "warehouse"."legacy"."order_items" AS b
+    ON a.order_id = b.order_id
+   AND a.product_id < b.product_id
+GROUP BY a.product_id, b.product_id

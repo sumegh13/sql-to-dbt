@@ -9,10 +9,11 @@
  "status": "verified",
  "attempts": 1,
  "rows": 5,
- "model_sql": "select c.region, count(distinct c.customer_id) as buyers\nfrom {{ source('legacy', 'customers') }} c join {{ source('legacy', 'orders') }} o on o.customer_id = c.customer_id group by c.region\n",
+ "model_sql": "WITH buyer_rows AS (\n    SELECT c.region, c.customer_id\n    FROM {{ source('legacy', 'customers') }} c\n    INNER JOIN {{ source('legacy', 'orders') }} o\n        ON o.customer_id = c.customer_id\n)\nSELECT\n    MIN(region) AS region,\n    COUNT(DISTINCT customer_id) AS buyers\nFROM buyer_rows\nGROUP BY UPPER(RTRIM(region))",
  "history": [
   {
    "attempt": 1,
+   "sql": "WITH buyer_rows AS (\n    SELECT c.region, c.customer_id\n    FROM {{ source('legacy', 'customers') }} c\n    INNER JOIN {{ source('legacy', 'orders') }} o\n        ON o.customer_id = c.customer_id\n)\nSELECT\n    MIN(region) AS region,\n    COUNT(DISTINCT customer_id) AS buyers\nFROM buyer_rows\nGROUP BY UPPER(RTRIM(region))",
    "status": "match",
    "detail": {
     "equivalent": true,
@@ -21,5 +22,17 @@
     "issues": []
    }
   }
- ]
+ ],
+ "explanation": "This procedure counts, for each sales region, how many distinct customers have placed at least one order. It rebuilds the dbo.buyers_by_region table each time it runs. The model below matches SQL Server's case-insensitive, trailing-space-insensitive grouping so that regions like 'East' and 'east ' are counted as one region.",
+ "llm_calls": [
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 1464,
+   "output_tokens": 1255,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.000774
+  }
+ ],
+ "cost_usd": 0.000774
 }

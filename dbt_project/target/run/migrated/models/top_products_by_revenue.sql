@@ -1,7 +1,21 @@
 
   
   create view "warehouse"."main"."top_products_by_revenue__dbt_tmp" as (
-    select p.product_id, p.product_name, sum(i.qty * i.unit_price) as revenue
-from "warehouse"."legacy"."order_items" i join "warehouse"."legacy"."products" p on p.product_id = i.product_id
-group by 1, 2 order by revenue desc, p.product_id limit 5
+    WITH product_revenue AS (
+    SELECT
+        p.product_id,
+        p.product_name,
+        CAST(SUM(CAST(i.qty AS DECIMAL(18,2)) * i.unit_price) AS DECIMAL(38,2)) AS revenue
+    FROM "warehouse"."legacy"."order_items" i
+    JOIN "warehouse"."legacy"."products" p
+        ON p.product_id = i.product_id
+    GROUP BY p.product_id, p.product_name
+)
+SELECT
+    product_id,
+    product_name,
+    revenue
+FROM product_revenue
+ORDER BY revenue DESC, product_id
+LIMIT 5
   );

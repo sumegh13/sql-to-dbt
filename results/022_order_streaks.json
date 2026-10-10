@@ -8,10 +8,11 @@
  "status": "verified",
  "attempts": 1,
  "rows": 30,
- "model_sql": "with d as (select distinct customer_id, order_date from {{ source('legacy', 'orders') }}),\ng as (select customer_id, order_date,\n        order_date - cast(row_number() over (partition by customer_id order by order_date) as integer) as grp from d)\nselect customer_id, min(order_date) as streak_start, max(order_date) as streak_end, count(*) as days\nfrom g group by customer_id, grp\n",
+ "model_sql": "WITH d AS (\n    SELECT DISTINCT customer_id, order_date\n    FROM {{ source('legacy', 'orders') }}\n),\ng AS (\n    SELECT\n        customer_id,\n        order_date,\n        order_date - CAST(ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY order_date) AS INTEGER) AS grp\n    FROM d\n)\nSELECT\n    customer_id,\n    MIN(order_date) AS streak_start,\n    MAX(order_date) AS streak_end,\n    COUNT(*) AS days\nFROM g\nGROUP BY customer_id, grp",
  "history": [
   {
    "attempt": 1,
+   "sql": "WITH d AS (\n    SELECT DISTINCT customer_id, order_date\n    FROM {{ source('legacy', 'orders') }}\n),\ng AS (\n    SELECT\n        customer_id,\n        order_date,\n        order_date - CAST(ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY order_date) AS INTEGER) AS grp\n    FROM d\n)\nSELECT\n    customer_id,\n    MIN(order_date) AS streak_start,\n    MAX(order_date) AS streak_end,\n    COUNT(*) AS days\nFROM g\nGROUP BY customer_id, grp",
    "status": "match",
    "detail": {
     "equivalent": true,
@@ -20,5 +21,17 @@
     "issues": []
    }
   }
- ]
+ ],
+ "explanation": "For each customer, the procedure looks at their distinct order dates and finds runs of consecutive calendar days. Each run is reported with its first day, last day, and number of days. The result is stored in a table called order_streaks.",
+ "llm_calls": [
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 1570,
+   "output_tokens": 1308,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.000811
+  }
+ ],
+ "cost_usd": 0.000811
 }

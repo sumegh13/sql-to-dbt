@@ -9,10 +9,11 @@
  "status": "verified",
  "attempts": 1,
  "rows": 34,
- "model_sql": "select order_id, customer_id, order_date,\n  lag(order_date) over (partition by customer_id order by order_date, order_id) as prev_date,\n  case when date_diff('day', lag(order_date) over (partition by customer_id order by order_date, order_id), order_date) <= 7 then 1 else 0 end as is_repeat_7d\nfrom {{ source('legacy', 'orders') }}\n",
+ "model_sql": "WITH base AS (\n    SELECT\n        order_id,\n        customer_id,\n        order_date,\n        LAG(order_date) OVER (\n            PARTITION BY customer_id\n            ORDER BY order_date, order_id\n        ) AS prev_date\n    FROM {{ source('legacy', 'orders') }}\n)\nSELECT\n    order_id,\n    customer_id,\n    order_date,\n    prev_date,\n    CASE\n        WHEN date_diff('day', prev_date, order_date) <= 7 THEN 1\n        ELSE 0\n    END AS is_repeat_7d\nFROM base",
  "history": [
   {
    "attempt": 1,
+   "sql": "WITH base AS (\n    SELECT\n        order_id,\n        customer_id,\n        order_date,\n        LAG(order_date) OVER (\n            PARTITION BY customer_id\n            ORDER BY order_date, order_id\n        ) AS prev_date\n    FROM {{ source('legacy', 'orders') }}\n)\nSELECT\n    order_id,\n    customer_id,\n    order_date,\n    prev_date,\n    CASE\n        WHEN date_diff('day', prev_date, order_date) <= 7 THEN 1\n        ELSE 0\n    END AS is_repeat_7d\nFROM base",
    "status": "match",
    "detail": {
     "equivalent": true,
@@ -21,5 +22,17 @@
     "issues": []
    }
   }
- ]
+ ],
+ "explanation": "For each order, this procedure finds the same customer's previous order by date (ties broken by order_id) and records that previous date. It flags the order as a repeat purchase (1) if the previous order was 7 or fewer days earlier, and 0 otherwise, including when there is no earlier order. The result is one row per order, saved to a table called repeat_purchase_flag.",
+ "llm_calls": [
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 1582,
+   "output_tokens": 990,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.000653
+  }
+ ],
+ "cost_usd": 0.000653
 }

@@ -1,2 +1,16 @@
-select customer_id, trim(t) as tag from (
-  select customer_id, unnest(string_split(tags, ',')) as t from "warehouse"."legacy"."customers" where tags is not null) x
+WITH split_tags AS (
+    SELECT
+        c.customer_id,
+        unnest(
+            CASE
+                WHEN c.tags = '' THEN ['']
+                ELSE string_split(c.tags, ',')
+            END
+        ) AS raw_tag
+    FROM "warehouse"."legacy"."customers" c
+    WHERE c.tags IS NOT NULL
+)
+SELECT
+    customer_id,
+    LTRIM(RTRIM(raw_tag)) AS tag
+FROM split_tags

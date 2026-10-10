@@ -10,10 +10,11 @@
  "status": "verified",
  "attempts": 1,
  "rows": 34,
- "model_sql": "select order_id, order_date, last_day(order_date) as month_end,\n  case when month(order_date) >= 4 then year(order_date) + 1 else year(order_date) end as fiscal_year,\n  ((month(order_date) + 8) % 12) // 3 + 1 as fiscal_qtr,\n  dayname(order_date) as dow\nfrom {{ source('legacy', 'orders') }}\n",
+ "model_sql": "SELECT\n  order_id,\n  order_date,\n  last_day(order_date) AS month_end,\n  CAST(CASE WHEN EXTRACT(MONTH FROM order_date) >= 4\n            THEN EXTRACT(YEAR FROM order_date) + 1\n            ELSE EXTRACT(YEAR FROM order_date) END AS INTEGER) AS fiscal_year,\n  CAST(((EXTRACT(MONTH FROM order_date) + 8) % 12) // 3 + 1 AS INTEGER) AS fiscal_qtr,\n  strftime(order_date, '%A') AS dow\nFROM {{ source('legacy', 'orders') }}",
  "history": [
   {
    "attempt": 1,
+   "sql": "SELECT\n  order_id,\n  order_date,\n  last_day(order_date) AS month_end,\n  CAST(CASE WHEN EXTRACT(MONTH FROM order_date) >= 4\n            THEN EXTRACT(YEAR FROM order_date) + 1\n            ELSE EXTRACT(YEAR FROM order_date) END AS INTEGER) AS fiscal_year,\n  CAST(((EXTRACT(MONTH FROM order_date) + 8) % 12) // 3 + 1 AS INTEGER) AS fiscal_qtr,\n  strftime(order_date, '%A') AS dow\nFROM {{ source('legacy', 'orders') }}",
    "status": "match",
    "detail": {
     "equivalent": true,
@@ -22,5 +23,17 @@
     "issues": []
    }
   }
- ]
+ ],
+ "explanation": "This procedure builds a fiscal calendar table with one row per order. For each order it adds the last day of the order's month, a fiscal year and quarter (the fiscal year starts in April), and the full English weekday name. The table is rebuilt from scratch on each run.",
+ "llm_calls": [
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 1577,
+   "output_tokens": 901,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.000608
+  }
+ ],
+ "cost_usd": 0.000608
 }

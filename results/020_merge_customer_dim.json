@@ -9,10 +9,11 @@
  "status": "verified",
  "attempts": 1,
  "rows": 14,
- "model_sql": "select coalesce(s.customer_id, t.customer_id) as customer_id,\n  case when s.customer_id is not null then s.customer_name else t.customer_name end as customer_name,\n  case when s.customer_id is not null then s.region else t.region end as region,\n  coalesce(s.email, t.email) as email\nfrom {{ source('legacy', 'customers') }} t full outer join {{ source('legacy', 'customer_staging') }} s on t.customer_id = s.customer_id\n",
+ "model_sql": "WITH target AS (\n    SELECT customer_id, customer_name, region, email\n    FROM {{ source('legacy', 'customers') }}\n),\nstaging AS (\n    SELECT customer_id, customer_name, region, email\n    FROM {{ source('legacy', 'customer_staging') }}\n),\nmatched AS (\n    SELECT\n        t.customer_id,\n        s.customer_name,\n        s.region,\n        COALESCE(s.email, t.email) AS email\n    FROM target t\n    INNER JOIN staging s\n        ON t.customer_id = s.customer_id\n),\nunmatched_target AS (\n    SELECT t.customer_id, t.customer_name, t.region, t.email\n    FROM target t\n    WHERE NOT EXISTS (\n        SELECT 1 FROM staging s WHERE s.customer_id = t.customer_id\n    )\n),\ninserted AS (\n    SELECT s.customer_id, s.customer_name, s.region, s.email\n    FROM staging s\n    WHERE NOT EXISTS (\n        SELECT 1 FROM target t WHERE t.customer_id = s.customer_id\n    )\n)\nSELECT customer_id, customer_name, region, email FROM matched\nUNION ALL\nSELECT customer_id, customer_name, region, email FROM unmatched_target\nUNION ALL\nSELECT customer_id, customer_name, region, email FROM inserted",
  "history": [
   {
    "attempt": 1,
+   "sql": "WITH target AS (\n    SELECT customer_id, customer_name, region, email\n    FROM {{ source('legacy', 'customers') }}\n),\nstaging AS (\n    SELECT customer_id, customer_name, region, email\n    FROM {{ source('legacy', 'customer_staging') }}\n),\nmatched AS (\n    SELECT\n        t.customer_id,\n        s.customer_name,\n        s.region,\n        COALESCE(s.email, t.email) AS email\n    FROM target t\n    INNER JOIN staging s\n        ON t.customer_id = s.customer_id\n),\nunmatched_target AS (\n    SELECT t.customer_id, t.customer_name, t.region, t.email\n    FROM target t\n    WHERE NOT EXISTS (\n        SELECT 1 FROM staging s WHERE s.customer_id = t.customer_id\n    )\n),\ninserted AS (\n    SELECT s.customer_id, s.customer_name, s.region, s.email\n    FROM staging s\n    WHERE NOT EXISTS (\n        SELECT 1 FROM target t WHERE t.customer_id = s.customer_id\n    )\n)\nSELECT customer_id, customer_name, region, email FROM matched\nUNION ALL\nSELECT customer_id, customer_name, region, email FROM unmatched_target\nUNION ALL\nSELECT customer_id, customer_name, region, email FROM inserted",
    "status": "match",
    "detail": {
     "equivalent": true,
@@ -21,5 +22,17 @@
     "issues": []
    }
   }
- ]
+ ],
+ "explanation": "This procedure keeps a customer dimension in sync with a staging feed. It starts from the current customers table, overwrites name and region for customers that appear in staging (and fills in email from staging, keeping the existing email when staging has none), and adds any staging customers not already present. Customers absent from staging are left unchanged, and nothing is deleted.",
+ "llm_calls": [
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 1609,
+   "output_tokens": 1619,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.00097
+  }
+ ],
+ "cost_usd": 0.00097
 }

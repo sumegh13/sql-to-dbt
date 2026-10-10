@@ -8,10 +8,11 @@
  "status": "verified",
  "attempts": 1,
  "rows": 10,
- "model_sql": "select customer_id, count(*) as total_orders,\n  sum(case when lower(status) = 'cancelled' then 1 else 0 end) as cancelled_orders,\n  sum(case when lower(status) = 'cancelled' then 1 else 0 end) * 100 // count(*) as cancel_pct\nfrom {{ source('legacy', 'orders') }} group by customer_id\n",
+ "model_sql": "select\n    customer_id,\n    cast(count(*) as integer) as total_orders,\n    cast(sum(case when upper(rtrim(status)) = 'CANCELLED' then 1 else 0 end) as integer) as cancelled_orders,\n    cast(\n        (sum(case when upper(rtrim(status)) = 'CANCELLED' then 1 else 0 end) * 100) // count(*)\n        as integer\n    ) as cancel_pct\nfrom {{ source('legacy', 'orders') }}\ngroup by customer_id",
  "history": [
   {
    "attempt": 1,
+   "sql": "select\n    customer_id,\n    cast(count(*) as integer) as total_orders,\n    cast(sum(case when upper(rtrim(status)) = 'CANCELLED' then 1 else 0 end) as integer) as cancelled_orders,\n    cast(\n        (sum(case when upper(rtrim(status)) = 'CANCELLED' then 1 else 0 end) * 100) // count(*)\n        as integer\n    ) as cancel_pct\nfrom {{ source('legacy', 'orders') }}\ngroup by customer_id",
    "status": "match",
    "detail": {
     "equivalent": true,
@@ -20,5 +21,17 @@
     "issues": []
    }
   }
- ]
+ ],
+ "explanation": "This procedure summarizes orders for each customer: how many orders they placed, how many were cancelled, and what percentage of their orders were cancelled. It rebuilds the result table from scratch on each run. The percentage is computed with integer arithmetic, so it is rounded down to a whole number.",
+ "llm_calls": [
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 1565,
+   "output_tokens": 990,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.000651
+  }
+ ],
+ "cost_usd": 0.000651
 }

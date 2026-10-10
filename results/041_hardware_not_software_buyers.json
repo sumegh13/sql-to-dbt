@@ -8,10 +8,11 @@
  "status": "verified",
  "attempts": 1,
  "rows": 1,
- "model_sql": "select distinct o.customer_id from {{ source('legacy', 'orders') }} o\njoin {{ source('legacy', 'order_items') }} i on i.order_id = o.order_id join {{ source('legacy', 'products') }} p on p.product_id = i.product_id where p.category = 'Hardware'\nexcept\nselect distinct o.customer_id from {{ source('legacy', 'orders') }} o\njoin {{ source('legacy', 'order_items') }} i on i.order_id = o.order_id join {{ source('legacy', 'products') }} p on p.product_id = i.product_id where p.category = 'Software'\n",
+ "model_sql": "WITH hardware_buyers AS (\n    SELECT DISTINCT o.customer_id\n    FROM {{ source('legacy', 'orders') }} o\n    JOIN {{ source('legacy', 'order_items') }} i ON i.order_id = o.order_id\n    JOIN {{ source('legacy', 'products') }} p ON p.product_id = i.product_id\n    WHERE rtrim(lower(p.category)) = 'hardware'\n),\nsoftware_buyers AS (\n    SELECT DISTINCT o.customer_id\n    FROM {{ source('legacy', 'orders') }} o\n    JOIN {{ source('legacy', 'order_items') }} i ON i.order_id = o.order_id\n    JOIN {{ source('legacy', 'products') }} p ON p.product_id = i.product_id\n    WHERE rtrim(lower(p.category)) = 'software'\n)\nSELECT customer_id FROM hardware_buyers\nEXCEPT\nSELECT customer_id FROM software_buyers",
  "history": [
   {
    "attempt": 1,
+   "sql": "WITH hardware_buyers AS (\n    SELECT DISTINCT o.customer_id\n    FROM {{ source('legacy', 'orders') }} o\n    JOIN {{ source('legacy', 'order_items') }} i ON i.order_id = o.order_id\n    JOIN {{ source('legacy', 'products') }} p ON p.product_id = i.product_id\n    WHERE rtrim(lower(p.category)) = 'hardware'\n),\nsoftware_buyers AS (\n    SELECT DISTINCT o.customer_id\n    FROM {{ source('legacy', 'orders') }} o\n    JOIN {{ source('legacy', 'order_items') }} i ON i.order_id = o.order_id\n    JOIN {{ source('legacy', 'products') }} p ON p.product_id = i.product_id\n    WHERE rtrim(lower(p.category)) = 'software'\n)\nSELECT customer_id FROM hardware_buyers\nEXCEPT\nSELECT customer_id FROM software_buyers",
    "status": "match",
    "detail": {
     "equivalent": true,
@@ -20,5 +21,17 @@
     "issues": []
    }
   }
- ]
+ ],
+ "explanation": "This procedure builds a list of customers who have bought at least one Hardware product but never bought any Software product. Each customer appears once in the result. The category match is case-insensitive and ignores trailing spaces, as in SQL Server's default collation.",
+ "llm_calls": [
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 1587,
+   "output_tokens": 945,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.000631
+  }
+ ],
+ "cost_usd": 0.000631
 }

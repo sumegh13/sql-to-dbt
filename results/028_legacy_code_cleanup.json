@@ -8,10 +8,11 @@
  "status": "verified",
  "attempts": 1,
  "rows": 12,
- "model_sql": "select customer_id, legacy_code, try_cast(legacy_code as integer) as legacy_code_num,\n  case when try_cast(legacy_code as integer) is null then 1 else 0 end as invalid\nfrom {{ source('legacy', 'customers') }}\n",
+ "model_sql": "WITH src AS (\n    SELECT\n        customer_id,\n        legacy_code,\n        TRIM(legacy_code) AS t\n    FROM {{ source('legacy', 'customers') }}\n),\nparsed AS (\n    SELECT\n        customer_id,\n        legacy_code,\n        CASE\n            WHEN regexp_matches(t, '^[+-]?[0-9]+$') THEN TRY_CAST(t AS BIGINT)\n        END AS n\n    FROM src\n)\nSELECT\n    customer_id,\n    legacy_code,\n    CASE\n        WHEN n BETWEEN -2147483648 AND 2147483647 THEN CAST(n AS INTEGER)\n    END AS legacy_code_num,\n    CASE\n        WHEN n IS NULL OR n NOT BETWEEN -2147483648 AND 2147483647 THEN 1\n        ELSE 0\n    END AS invalid\nFROM parsed",
  "history": [
   {
    "attempt": 1,
+   "sql": "WITH src AS (\n    SELECT\n        customer_id,\n        legacy_code,\n        TRIM(legacy_code) AS t\n    FROM {{ source('legacy', 'customers') }}\n),\nparsed AS (\n    SELECT\n        customer_id,\n        legacy_code,\n        CASE\n            WHEN regexp_matches(t, '^[+-]?[0-9]+$') THEN TRY_CAST(t AS BIGINT)\n        END AS n\n    FROM src\n)\nSELECT\n    customer_id,\n    legacy_code,\n    CASE\n        WHEN n BETWEEN -2147483648 AND 2147483647 THEN CAST(n AS INTEGER)\n    END AS legacy_code_num,\n    CASE\n        WHEN n IS NULL OR n NOT BETWEEN -2147483648 AND 2147483647 THEN 1\n        ELSE 0\n    END AS invalid\nFROM parsed",
    "status": "match",
    "detail": {
     "equivalent": true,
@@ -20,5 +21,17 @@
     "issues": []
    }
   }
- ]
+ ],
+ "explanation": "This procedure rebuilds a table that lists every customer's legacy code alongside a numeric version of it. It tries to convert each code to an integer and flags the row as invalid (1) when the conversion fails, and as valid (0) when it succeeds. The result replaces any previous version of the table on each run.",
+ "llm_calls": [
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 1510,
+   "output_tokens": 1753,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.001027
+  }
+ ],
+ "cost_usd": 0.001027
 }

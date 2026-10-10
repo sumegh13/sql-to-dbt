@@ -9,10 +9,11 @@
  "status": "verified",
  "attempts": 1,
  "rows": 10,
- "model_sql": "select customer_id,\n  count(*) filter (where lower(status) = 'shipped') as shipped,\n  count(*) filter (where lower(status) = 'pending') as pending,\n  count(*) filter (where lower(status) = 'cancelled') as cancelled\nfrom {{ source('legacy', 'orders') }} group by customer_id\n",
+ "model_sql": "WITH src AS (\n    SELECT customer_id, status, order_id\n    FROM {{ source('legacy', 'orders') }}\n)\nSELECT\n    customer_id,\n    COUNT(CASE WHEN RTRIM(LOWER(status)) = 'shipped' THEN order_id END) AS shipped,\n    COUNT(CASE WHEN RTRIM(LOWER(status)) = 'pending' THEN order_id END) AS pending,\n    COUNT(CASE WHEN RTRIM(LOWER(status)) = 'cancelled' THEN order_id END) AS cancelled\nFROM src\nGROUP BY customer_id",
  "history": [
   {
    "attempt": 1,
+   "sql": "WITH src AS (\n    SELECT customer_id, status, order_id\n    FROM {{ source('legacy', 'orders') }}\n)\nSELECT\n    customer_id,\n    COUNT(CASE WHEN RTRIM(LOWER(status)) = 'shipped' THEN order_id END) AS shipped,\n    COUNT(CASE WHEN RTRIM(LOWER(status)) = 'pending' THEN order_id END) AS pending,\n    COUNT(CASE WHEN RTRIM(LOWER(status)) = 'cancelled' THEN order_id END) AS cancelled\nFROM src\nGROUP BY customer_id",
    "status": "match",
    "detail": {
     "equivalent": true,
@@ -21,5 +22,17 @@
     "issues": []
    }
   }
- ]
+ ],
+ "explanation": "This procedure counts each customer's orders by status, producing one row per customer with separate counts for shipped, pending and cancelled orders. Customers whose orders have no matching status still appear, with zeros in those columns. The rewrite matches status values case-insensitively and ignores trailing spaces, as SQL Server does by default.",
+ "llm_calls": [
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 1522,
+   "output_tokens": 1366,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.000835
+  }
+ ],
+ "cost_usd": 0.000835
 }

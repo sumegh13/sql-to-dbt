@@ -1,4 +1,15 @@
-select order_id, date_diff('day', order_date, date '2025-12-31') as age_days,
-  case when date_diff('day', order_date, date '2025-12-31') <= 30 then '0-30'
-       when date_diff('day', order_date, date '2025-12-31') <= 90 then '31-90' else '90+' end as bucket
-from "warehouse"."legacy"."orders"
+WITH aged AS (
+    SELECT
+        order_id,
+        CAST(DATE '2025-12-31' - order_date AS INTEGER) AS age_days
+    FROM "warehouse"."legacy"."orders"
+)
+SELECT
+    order_id,
+    age_days,
+    CASE
+        WHEN age_days <= 30 THEN '0-30'
+        WHEN age_days <= 90 THEN '31-90'
+        ELSE '90+'
+    END AS bucket
+FROM aged

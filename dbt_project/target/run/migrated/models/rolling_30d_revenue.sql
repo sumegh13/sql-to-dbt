@@ -1,9 +1,21 @@
 
   
   create view "warehouse"."main"."rolling_30d_revenue__dbt_tmp" as (
-    select d.order_date, sum(o2.amount) as rolling_30d
-from (select distinct order_date from "warehouse"."legacy"."orders") d
-left join "warehouse"."legacy"."orders" o2 on o2.order_date > d.order_date - 30 and o2.order_date <= d.order_date
-  and lower(o2.status) not in ('cancelled','returned')
-group by d.order_date
+    WITH d AS (
+    SELECT DISTINCT order_date
+    FROM "warehouse"."legacy"."orders"
+),
+valid AS (
+    SELECT order_date, amount
+    FROM "warehouse"."legacy"."orders"
+    WHERE rtrim(lower(status)) NOT IN ('cancelled', 'returned')
+)
+SELECT
+    d.order_date,
+    SUM(v.amount) AS rolling_30d
+FROM d
+LEFT JOIN valid v
+    ON v.order_date > d.order_date - 30
+   AND v.order_date <= d.order_date
+GROUP BY d.order_date
   );

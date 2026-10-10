@@ -9,10 +9,11 @@
  "status": "verified",
  "attempts": 1,
  "rows": 10,
- "model_sql": "select customer_id, order_id, amount from {{ source('legacy', 'orders') }}\nqualify row_number() over (partition by customer_id order by amount desc, order_id) = 1\n",
+ "model_sql": "WITH ranked AS (\n    SELECT\n        o.customer_id,\n        o.order_id,\n        o.amount,\n        ROW_NUMBER() OVER (\n            PARTITION BY o.customer_id\n            ORDER BY o.amount DESC NULLS LAST, o.order_id ASC NULLS FIRST\n        ) AS rn\n    FROM {{ source('legacy', 'orders') }} o\n    WHERE o.customer_id IS NOT NULL\n)\nSELECT\n    c.customer_id,\n    r.order_id,\n    r.amount\nFROM {{ source('legacy', 'customers') }} c\nJOIN ranked r\n    ON r.customer_id = c.customer_id\n   AND r.rn = 1",
  "history": [
   {
    "attempt": 1,
+   "sql": "WITH ranked AS (\n    SELECT\n        o.customer_id,\n        o.order_id,\n        o.amount,\n        ROW_NUMBER() OVER (\n            PARTITION BY o.customer_id\n            ORDER BY o.amount DESC NULLS LAST, o.order_id ASC NULLS FIRST\n        ) AS rn\n    FROM {{ source('legacy', 'orders') }} o\n    WHERE o.customer_id IS NOT NULL\n)\nSELECT\n    c.customer_id,\n    r.order_id,\n    r.amount\nFROM {{ source('legacy', 'customers') }} c\nJOIN ranked r\n    ON r.customer_id = c.customer_id\n   AND r.rn = 1",
    "status": "match",
    "detail": {
     "equivalent": true,
@@ -21,5 +22,17 @@
     "issues": []
    }
   }
- ]
+ ],
+ "explanation": "For each customer, this procedure finds the single largest order by amount, using the lowest order_id to break ties. Customers with no orders are left out of the result. The output has one row per such customer, with the customer ID, the chosen order ID, and that order's amount.",
+ "llm_calls": [
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 1510,
+   "output_tokens": 1168,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.000735
+  }
+ ],
+ "cost_usd": 0.000735
 }

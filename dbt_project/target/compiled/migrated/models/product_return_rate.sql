@@ -1,5 +1,19 @@
-select p.product_id, p.product_name, count(*) as line_count,
-  sum(case when lower(o.status) = 'returned' then 1 else 0 end) as returned_lines,
-  cast(sum(case when lower(o.status) = 'returned' then 1 else 0 end) as double) / count(*) as return_rate
-from "warehouse"."legacy"."order_items" i join "warehouse"."legacy"."orders" o on o.order_id = i.order_id
-join "warehouse"."legacy"."products" p on p.product_id = i.product_id group by 1, 2
+WITH joined AS (
+    SELECT
+        p.product_id,
+        p.product_name,
+        CASE WHEN rtrim(lower(o.status)) = 'returned' THEN 1 ELSE 0 END AS is_returned
+    FROM "warehouse"."legacy"."order_items" i
+    JOIN "warehouse"."legacy"."orders" o
+        ON o.order_id = i.order_id
+    JOIN "warehouse"."legacy"."products" p
+        ON p.product_id = i.product_id
+)
+SELECT
+    product_id,
+    product_name,
+    COUNT(*) AS line_count,
+    SUM(is_returned) AS returned_lines,
+    CAST(SUM(is_returned) AS DOUBLE) / COUNT(*) AS return_rate
+FROM joined
+GROUP BY product_id, product_name

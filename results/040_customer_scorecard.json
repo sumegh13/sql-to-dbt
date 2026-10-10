@@ -8,10 +8,11 @@
  "status": "verified",
  "attempts": 1,
  "rows": 12,
- "model_sql": "select c.customer_id,\n  sum(case when lower(o.status) = 'shipped' then o.amount else 0 end) as shipped_amt,\n  sum(case when lower(o.status) = 'pending' then o.amount else 0 end) as pending_amt,\n  sum(case when lower(o.status) = 'cancelled' then o.amount else 0 end) as cancelled_amt,\n  max(o.order_date) as last_order, count(o.order_id) as orders\nfrom {{ source('legacy', 'customers') }} c left join {{ source('legacy', 'orders') }} o on o.customer_id = c.customer_id group by c.customer_id\n",
+ "model_sql": "SELECT\n    c.customer_id,\n    SUM(CASE WHEN rtrim(lower(o.status)) = 'shipped' THEN o.amount ELSE CAST(0 AS DECIMAL(18,2)) END) AS shipped_amt,\n    SUM(CASE WHEN rtrim(lower(o.status)) = 'pending' THEN o.amount ELSE CAST(0 AS DECIMAL(18,2)) END) AS pending_amt,\n    SUM(CASE WHEN rtrim(lower(o.status)) = 'cancelled' THEN o.amount ELSE CAST(0 AS DECIMAL(18,2)) END) AS cancelled_amt,\n    MAX(o.order_date) AS last_order,\n    COUNT(o.order_id) AS orders\nFROM {{ source('legacy', 'customers') }} c\nLEFT JOIN {{ source('legacy', 'orders') }} o\n    ON o.customer_id = c.customer_id\nGROUP BY c.customer_id",
  "history": [
   {
    "attempt": 1,
+   "sql": "SELECT\n    c.customer_id,\n    SUM(CASE WHEN rtrim(lower(o.status)) = 'shipped' THEN o.amount ELSE CAST(0 AS DECIMAL(18,2)) END) AS shipped_amt,\n    SUM(CASE WHEN rtrim(lower(o.status)) = 'pending' THEN o.amount ELSE CAST(0 AS DECIMAL(18,2)) END) AS pending_amt,\n    SUM(CASE WHEN rtrim(lower(o.status)) = 'cancelled' THEN o.amount ELSE CAST(0 AS DECIMAL(18,2)) END) AS cancelled_amt,\n    MAX(o.order_date) AS last_order,\n    COUNT(o.order_id) AS orders\nFROM {{ source('legacy', 'customers') }} c\nLEFT JOIN {{ source('legacy', 'orders') }} o\n    ON o.customer_id = c.customer_id\nGROUP BY c.customer_id",
    "status": "match",
    "detail": {
     "equivalent": true,
@@ -20,5 +21,17 @@
     "issues": []
    }
   }
- ]
+ ],
+ "explanation": "This procedure builds a per-customer scorecard by joining every customer to their orders, including customers with no orders. For each customer it totals order amounts by status (shipped, pending, cancelled), records the date of the most recent order, and counts orders. The result is written to the customer_scorecard table, replacing any previous version.",
+ "llm_calls": [
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 1655,
+   "output_tokens": 1558,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.000945
+  }
+ ],
+ "cost_usd": 0.000945
 }

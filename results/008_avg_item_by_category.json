@@ -6,12 +6,55 @@
   "decimal-avg"
  ],
  "status": "verified",
- "attempts": 1,
+ "attempts": 2,
  "rows": 3,
- "model_sql": "select p.category, avg(i.qty * i.unit_price) as avg_line_value, count(*) as line_count\nfrom {{ source('legacy', 'order_items') }} i join {{ source('legacy', 'products') }} p on p.product_id = i.product_id group by 1\n",
+ "model_sql": "WITH base AS (\n    SELECT p.category, i.qty, i.unit_price\n    FROM {{ source('legacy', 'order_items') }} i\n    JOIN {{ source('legacy', 'products') }} p ON p.product_id = i.product_id\n),\nagg AS (\n    SELECT\n        MIN(category) AS category,\n        SUM(CAST(ROUND(qty * unit_price * 100) AS HUGEINT)) AS total_cents,\n        COUNT(qty * unit_price) AS n_nonnull,\n        COUNT(*) AS line_count\n    FROM base\n    GROUP BY LOWER(RTRIM(category))\n),\ncalc AS (\n    SELECT\n        category,\n        CASE\n            WHEN n_nonnull > 0\n            THEN (total_cents * 10000) // n_nonnull\n            ELSE NULL\n        END AS avg_micro,\n        line_count\n    FROM agg\n)\nSELECT\n    category,\n    CAST(CAST(avg_micro AS DECIMAL(38,6)) / CAST(1000000 AS DECIMAL(38,6)) AS DECIMAL(38,6)) AS avg_line_value,\n    line_count\nFROM calc",
  "history": [
   {
    "attempt": 1,
+   "sql": "WITH base AS (\n    SELECT p.category, i.qty, i.unit_price\n    FROM {{ source('legacy', 'order_items') }} i\n    JOIN {{ source('legacy', 'products') }} p ON p.product_id = i.product_id\n),\nagg AS (\n    SELECT\n        MIN(category) AS category,\n        SUM(CAST(ROUND(qty * unit_price * 100) AS BIGINT)) AS total_cents,\n        COUNT(qty * unit_price) AS n_nonnull,\n        COUNT(*) AS line_count\n    FROM base\n    GROUP BY LOWER(RTRIM(category))\n)\nSELECT\n    category,\n    CASE\n        WHEN n_nonnull > 0\n        THEN CAST(CAST(total_cents // n_nonnull AS DECIMAL(38,2)) / 100 AS DECIMAL(38,2))\n        ELSE NULL\n    END AS avg_line_value,\n    line_count\nFROM agg",
+   "status": "diff",
+   "detail": {
+    "equivalent": false,
+    "legacy_rows": 3,
+    "new_rows": 3,
+    "issues": [
+     {
+      "in_legacy_not_new": [
+       [
+        "Hardware",
+        88.944444,
+        27
+       ],
+       [
+        "Software",
+        26.626111,
+        18
+       ]
+      ],
+      "count": 2
+     },
+     {
+      "in_new_not_legacy": [
+       [
+        "Software",
+        26.62,
+        18
+       ],
+       [
+        "Hardware",
+        88.94,
+        27
+       ]
+      ],
+      "count": 2
+     }
+    ]
+   }
+  },
+  {
+   "attempt": 2,
+   "sql": "WITH base AS (\n    SELECT p.category, i.qty, i.unit_price\n    FROM {{ source('legacy', 'order_items') }} i\n    JOIN {{ source('legacy', 'products') }} p ON p.product_id = i.product_id\n),\nagg AS (\n    SELECT\n        MIN(category) AS category,\n        SUM(CAST(ROUND(qty * unit_price * 100) AS HUGEINT)) AS total_cents,\n        COUNT(qty * unit_price) AS n_nonnull,\n        COUNT(*) AS line_count\n    FROM base\n    GROUP BY LOWER(RTRIM(category))\n),\ncalc AS (\n    SELECT\n        category,\n        CASE\n            WHEN n_nonnull > 0\n            THEN (total_cents * 10000) // n_nonnull\n            ELSE NULL\n        END AS avg_micro,\n        line_count\n    FROM agg\n)\nSELECT\n    category,\n    CAST(CAST(avg_micro AS DECIMAL(38,6)) / CAST(1000000 AS DECIMAL(38,6)) AS DECIMAL(38,6)) AS avg_line_value,\n    line_count\nFROM calc",
    "status": "match",
    "detail": {
     "equivalent": true,
@@ -20,5 +63,25 @@
     "issues": []
    }
   }
- ]
+ ],
+ "explanation": "This procedure rebuilds a summary table that shows, for each product category, the average line value (quantity times unit price) across all order line items and the total number of line items. It only counts items that match a known product. The model below also matches SQL Server's case-insensitive grouping, so categories that differ only in letter case or trailing spaces are merged into one row.",
+ "llm_calls": [
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 1487,
+   "output_tokens": 2811,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.001554
+  },
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 2065,
+   "output_tokens": 2097,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.001255
+  }
+ ],
+ "cost_usd": 0.002809
 }

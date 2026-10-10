@@ -9,10 +9,11 @@
  "status": "verified",
  "attempts": 1,
  "rows": 10,
- "model_sql": "select p.product_id, p.product_name, sum(inv.qty_on_hand) as total_qty,\n  case when sum(inv.qty_on_hand) < 20 then 1 else 0 end as low_stock\nfrom {{ source('legacy', 'products') }} p left join {{ source('legacy', 'inventory') }} inv on inv.product_id = p.product_id\ngroup by 1, 2\n",
+ "model_sql": "SELECT\n    p.product_id,\n    p.product_name,\n    SUM(inv.qty_on_hand) AS total_qty,\n    CASE WHEN SUM(inv.qty_on_hand) < 20 THEN 1 ELSE 0 END AS low_stock\nFROM {{ source('legacy', 'products') }} AS p\nLEFT JOIN {{ source('legacy', 'inventory') }} AS inv\n    ON inv.product_id = p.product_id\nGROUP BY p.product_id, p.product_name",
  "history": [
   {
    "attempt": 1,
+   "sql": "SELECT\n    p.product_id,\n    p.product_name,\n    SUM(inv.qty_on_hand) AS total_qty,\n    CASE WHEN SUM(inv.qty_on_hand) < 20 THEN 1 ELSE 0 END AS low_stock\nFROM {{ source('legacy', 'products') }} AS p\nLEFT JOIN {{ source('legacy', 'inventory') }} AS inv\n    ON inv.product_id = p.product_id\nGROUP BY p.product_id, p.product_name",
    "status": "match",
    "detail": {
     "equivalent": true,
@@ -21,5 +22,17 @@
     "issues": []
    }
   }
- ]
+ ],
+ "explanation": "This procedure builds a low-stock report with one row per product, showing the product's total quantity on hand across all warehouses. It flags a product with 1 if its total is below 20 and 0 otherwise. Products with no inventory rows still appear, with a null total and a flag of 0.",
+ "llm_calls": [
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 1537,
+   "output_tokens": 1018,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.000663
+  }
+ ],
+ "cost_usd": 0.000663
 }

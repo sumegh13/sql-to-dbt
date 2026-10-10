@@ -8,10 +8,11 @@
  "status": "verified",
  "attempts": 1,
  "rows": 34,
- "model_sql": "select order_id, customer_id, amount,\n  row_number() over (partition by customer_id order by amount desc, order_id) as rn,\n  rank() over (partition by customer_id order by amount desc) as rnk,\n  dense_rank() over (partition by customer_id order by amount desc) as drnk\nfrom {{ source('legacy', 'orders') }}\n",
+ "model_sql": "SELECT\n    order_id,\n    customer_id,\n    amount,\n    ROW_NUMBER() OVER (\n        PARTITION BY customer_id\n        ORDER BY amount DESC NULLS LAST, order_id ASC NULLS FIRST\n    ) AS rn,\n    RANK() OVER (\n        PARTITION BY customer_id\n        ORDER BY amount DESC NULLS LAST\n    ) AS rnk,\n    DENSE_RANK() OVER (\n        PARTITION BY customer_id\n        ORDER BY amount DESC NULLS LAST\n    ) AS drnk\nFROM {{ source('legacy', 'orders') }}",
  "history": [
   {
    "attempt": 1,
+   "sql": "SELECT\n    order_id,\n    customer_id,\n    amount,\n    ROW_NUMBER() OVER (\n        PARTITION BY customer_id\n        ORDER BY amount DESC NULLS LAST, order_id ASC NULLS FIRST\n    ) AS rn,\n    RANK() OVER (\n        PARTITION BY customer_id\n        ORDER BY amount DESC NULLS LAST\n    ) AS rnk,\n    DENSE_RANK() OVER (\n        PARTITION BY customer_id\n        ORDER BY amount DESC NULLS LAST\n    ) AS drnk\nFROM {{ source('legacy', 'orders') }}",
    "status": "match",
    "detail": {
     "equivalent": true,
@@ -20,5 +21,17 @@
     "issues": []
    }
   }
- ]
+ ],
+ "explanation": "This procedure ranks each customer's orders by amount, from largest to smallest, and saves the result to a table. Each order gets a unique row number within its customer (ties broken by order_id), plus a rank and a dense rank that give equal positions to orders with the same amount. The procedure drops and rebuilds the table on every run, and it does not filter or aggregate any rows.",
+ "llm_calls": [
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 1568,
+   "output_tokens": 815,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.000564
+  }
+ ],
+ "cost_usd": 0.000564
 }

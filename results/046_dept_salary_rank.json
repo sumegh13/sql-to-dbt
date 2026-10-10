@@ -10,10 +10,11 @@
  "status": "verified",
  "attempts": 1,
  "rows": 10,
- "model_sql": "select employee_id, emp_name, department, salary,\n  dense_rank() over (partition by department order by salary desc) as dept_rank,\n  cast(salary * 100.0 / sum(salary) over (partition by department) as decimal(5,2)) as pct_of_dept\nfrom {{ source('legacy', 'employees') }}\n",
+ "model_sql": "WITH base AS (\n    SELECT\n        employee_id,\n        emp_name,\n        department,\n        salary,\n        RTRIM(LOWER(department)) AS dept_key,\n        CAST(salary * 100 AS BIGINT) AS salary_cents\n    FROM {{ source('legacy', 'employees') }}\n),\ncalc AS (\n    SELECT\n        *,\n        SUM(salary_cents) OVER (PARTITION BY dept_key) AS dept_cents\n    FROM base\n)\nSELECT\n    employee_id,\n    emp_name,\n    department,\n    salary,\n    DENSE_RANK() OVER (PARTITION BY dept_key ORDER BY salary DESC) AS dept_rank,\n    CAST(((2 * salary_cents * 10000) + dept_cents) // (2 * dept_cents) / 100.0 AS DECIMAL(5,2)) AS pct_of_dept\nFROM calc",
  "history": [
   {
    "attempt": 1,
+   "sql": "WITH base AS (\n    SELECT\n        employee_id,\n        emp_name,\n        department,\n        salary,\n        RTRIM(LOWER(department)) AS dept_key,\n        CAST(salary * 100 AS BIGINT) AS salary_cents\n    FROM {{ source('legacy', 'employees') }}\n),\ncalc AS (\n    SELECT\n        *,\n        SUM(salary_cents) OVER (PARTITION BY dept_key) AS dept_cents\n    FROM base\n)\nSELECT\n    employee_id,\n    emp_name,\n    department,\n    salary,\n    DENSE_RANK() OVER (PARTITION BY dept_key ORDER BY salary DESC) AS dept_rank,\n    CAST(((2 * salary_cents * 10000) + dept_cents) // (2 * dept_cents) / 100.0 AS DECIMAL(5,2)) AS pct_of_dept\nFROM calc",
    "status": "match",
    "detail": {
     "equivalent": true,
@@ -22,5 +23,17 @@
     "issues": []
    }
   }
- ]
+ ],
+ "explanation": "This procedure ranks employees by salary within each department and shows each employee's salary as a percentage of their department's total payroll. It rebuilds the dept_salary_rank table from scratch on each run. The rewrite keeps SQL Server's case-insensitive, trailing-space-insensitive department grouping and its rounding of the percentage to two decimals.",
+ "llm_calls": [
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 1544,
+   "output_tokens": 2660,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.001484
+  }
+ ],
+ "cost_usd": 0.001484
 }

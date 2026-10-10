@@ -8,10 +8,11 @@
  "status": "verified",
  "attempts": 1,
  "rows": 3,
- "model_sql": "select split_part(email, '@', 2) as domain, count(*) as customers\nfrom {{ source('legacy', 'customers') }} where email is not null group by 1\n",
+ "model_sql": "WITH src AS (\n    SELECT\n        email,\n        strpos(email, '@') AS at_pos\n    FROM {{ source('legacy', 'customers') }}\n    WHERE email IS NOT NULL\n),\nparts AS (\n    SELECT\n        SUBSTRING(email, at_pos + 1, length(rtrim(email))) AS domain\n    FROM src\n)\nSELECT\n    min(domain) AS domain,\n    count(*) AS customers\nFROM parts\nGROUP BY rtrim(lower(domain))",
  "history": [
   {
    "attempt": 1,
+   "sql": "WITH src AS (\n    SELECT\n        email,\n        strpos(email, '@') AS at_pos\n    FROM {{ source('legacy', 'customers') }}\n    WHERE email IS NOT NULL\n),\nparts AS (\n    SELECT\n        SUBSTRING(email, at_pos + 1, length(rtrim(email))) AS domain\n    FROM src\n)\nSELECT\n    min(domain) AS domain,\n    count(*) AS customers\nFROM parts\nGROUP BY rtrim(lower(domain))",
    "status": "match",
    "detail": {
     "equivalent": true,
@@ -20,5 +21,17 @@
     "issues": []
    }
   }
- ]
+ ],
+ "explanation": "This procedure takes each customer email, pulls out the part after the \"@\" as the email domain, and counts how many customers use each domain. It rebuilds the output table from scratch on each run. The model below matches T-SQL's case-insensitive, trailing-space-insensitive grouping, so \"Gmail.com\" and \"gmail.com\" count as one domain.",
+ "llm_calls": [
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 1498,
+   "output_tokens": 2162,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.001231
+  }
+ ],
+ "cost_usd": 0.001231
 }

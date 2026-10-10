@@ -8,10 +8,11 @@
  "status": "verified",
  "attempts": 1,
  "rows": 10,
- "model_sql": "select employee_id, emp_name, salary,\n  case when salary >= 120000 then 'senior' when salary >= 70000 then 'mid' else 'junior' end as band\nfrom {{ source('legacy', 'employees') }}\n",
+ "model_sql": "SELECT\n    employee_id,\n    emp_name,\n    salary,\n    CASE\n        WHEN salary >= 120000 THEN 'senior'\n        WHEN salary >= 70000 THEN 'mid'\n        ELSE 'junior'\n    END AS band\nFROM {{ source('legacy', 'employees') }}",
  "history": [
   {
    "attempt": 1,
+   "sql": "SELECT\n    employee_id,\n    emp_name,\n    salary,\n    CASE\n        WHEN salary >= 120000 THEN 'senior'\n        WHEN salary >= 70000 THEN 'mid'\n        ELSE 'junior'\n    END AS band\nFROM {{ source('legacy', 'employees') }}",
    "status": "match",
    "detail": {
     "equivalent": true,
@@ -20,5 +21,17 @@
     "issues": []
    }
   }
- ]
+ ],
+ "explanation": "This procedure builds a salary band table from the employees table. Every employee keeps their ID, name and salary, and gets a band: \"senior\" at 120,000 or more, \"mid\" from 70,000 up to 120,000, and \"junior\" below that. An employee with a missing salary falls into \"junior\", as the original nested IIF does.",
+ "llm_calls": [
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 1470,
+   "output_tokens": 439,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.000367
+  }
+ ],
+ "cost_usd": 0.000367
 }

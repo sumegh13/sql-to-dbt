@@ -9,10 +9,11 @@
  "status": "verified",
  "attempts": 1,
  "rows": 10,
- "model_sql": "select product_id, price, effective_date from (\n  select product_id, price, effective_date,\n         row_number() over (partition by product_id order by effective_date desc) as rn\n  from {{ source('legacy', 'price_history') }} where effective_date <= date '2025-12-31') r\nwhere rn = 1\n",
+ "model_sql": "WITH ranked AS (\n    SELECT\n        product_id,\n        price,\n        effective_date,\n        ROW_NUMBER() OVER (\n            PARTITION BY product_id\n            ORDER BY effective_date DESC\n        ) AS rn\n    FROM {{ source('legacy', 'price_history') }}\n    WHERE effective_date <= DATE '2025-12-31'\n)\nSELECT\n    product_id,\n    price,\n    effective_date\nFROM ranked\nWHERE rn = 1",
  "history": [
   {
    "attempt": 1,
+   "sql": "WITH ranked AS (\n    SELECT\n        product_id,\n        price,\n        effective_date,\n        ROW_NUMBER() OVER (\n            PARTITION BY product_id\n            ORDER BY effective_date DESC\n        ) AS rn\n    FROM {{ source('legacy', 'price_history') }}\n    WHERE effective_date <= DATE '2025-12-31'\n)\nSELECT\n    product_id,\n    price,\n    effective_date\nFROM ranked\nWHERE rn = 1",
    "status": "match",
    "detail": {
     "equivalent": true,
@@ -21,5 +22,17 @@
     "issues": []
    }
   }
- ]
+ ],
+ "explanation": "This procedure builds a table with the most recent price for each product, using only price history entries dated on or before December 31, 2025. For each product it keeps the row with the latest effective date and discards older prices. The result has one row per product, with the product ID, its current price, and the date that price took effect.",
+ "llm_calls": [
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 1512,
+   "output_tokens": 579,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.000441
+  }
+ ],
+ "cost_usd": 0.000441
 }

@@ -1,5 +1,11 @@
-select customer_id,
-  count(*) filter (where lower(status) = 'shipped') as shipped,
-  count(*) filter (where lower(status) = 'pending') as pending,
-  count(*) filter (where lower(status) = 'cancelled') as cancelled
-from "warehouse"."legacy"."orders" group by customer_id
+WITH src AS (
+    SELECT customer_id, status, order_id
+    FROM "warehouse"."legacy"."orders"
+)
+SELECT
+    customer_id,
+    COUNT(CASE WHEN RTRIM(LOWER(status)) = 'shipped' THEN order_id END) AS shipped,
+    COUNT(CASE WHEN RTRIM(LOWER(status)) = 'pending' THEN order_id END) AS pending,
+    COUNT(CASE WHEN RTRIM(LOWER(status)) = 'cancelled' THEN order_id END) AS cancelled
+FROM src
+GROUP BY customer_id

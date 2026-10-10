@@ -9,10 +9,11 @@
  "status": "verified",
  "attempts": 1,
  "rows": 14,
- "model_sql": "select customer_id, trim(t) as tag from (\n  select customer_id, unnest(string_split(tags, ',')) as t from {{ source('legacy', 'customers') }} where tags is not null) x\n",
+ "model_sql": "WITH split_tags AS (\n    SELECT\n        c.customer_id,\n        unnest(\n            CASE\n                WHEN c.tags = '' THEN ['']\n                ELSE string_split(c.tags, ',')\n            END\n        ) AS raw_tag\n    FROM {{ source('legacy', 'customers') }} c\n    WHERE c.tags IS NOT NULL\n)\nSELECT\n    customer_id,\n    LTRIM(RTRIM(raw_tag)) AS tag\nFROM split_tags",
  "history": [
   {
    "attempt": 1,
+   "sql": "WITH split_tags AS (\n    SELECT\n        c.customer_id,\n        unnest(\n            CASE\n                WHEN c.tags = '' THEN ['']\n                ELSE string_split(c.tags, ',')\n            END\n        ) AS raw_tag\n    FROM {{ source('legacy', 'customers') }} c\n    WHERE c.tags IS NOT NULL\n)\nSELECT\n    customer_id,\n    LTRIM(RTRIM(raw_tag)) AS tag\nFROM split_tags",
    "status": "match",
    "detail": {
     "equivalent": true,
@@ -21,5 +22,17 @@
     "issues": []
    }
   }
- ]
+ ],
+ "explanation": "This procedure builds a table with one row per customer tag. It takes each customer's comma-separated tags, splits them into separate values, and removes leading and trailing spaces from each one. Customers with no tags are left out.",
+ "llm_calls": [
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 1475,
+   "output_tokens": 1334,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.000815
+  }
+ ],
+ "cost_usd": 0.000815
 }

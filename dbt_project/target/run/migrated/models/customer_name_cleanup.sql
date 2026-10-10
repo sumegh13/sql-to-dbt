@@ -1,8 +1,12 @@
 
   
   create view "warehouse"."main"."customer_name_cleanup__dbt_tmp" as (
-    select customer_id, upper(trim(customer_name)) as clean_name, left(ltrim(customer_name), 1) as initial,
-  customer_name || ' <' || email || '>' as display,
-  replace(lower(trim(customer_name)), ' ', '_') as slug, length(rtrim(customer_name)) as name_len
-from "warehouse"."legacy"."customers"
+    SELECT
+    customer_id,
+    UPPER(LTRIM(RTRIM(customer_name))) AS clean_name,
+    LEFT(LTRIM(customer_name), 1) AS initial,
+    customer_name || ' <' || email || '>' AS display,
+    REPLACE(LOWER(RTRIM(LTRIM(customer_name))), ' ', '_') AS slug,
+    CAST(LENGTH(RTRIM(customer_name)) AS INTEGER) AS name_len
+FROM "warehouse"."legacy"."customers"
   );

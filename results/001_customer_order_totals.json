@@ -8,10 +8,11 @@
  "status": "verified",
  "attempts": 1,
  "rows": 12,
- "model_sql": "select c.customer_id, c.customer_name, count(o.order_id) as order_count,\n       coalesce(sum(o.amount), 0) as total_amount,\n       case when coalesce(sum(o.amount), 0) >= 1000 then 'gold'\n            when coalesce(sum(o.amount), 0) >= 500 then 'silver' else 'bronze' end as tier\nfrom {{ source('legacy', 'customers') }} c\nleft join {{ source('legacy', 'orders') }} o on o.customer_id = c.customer_id and lower(o.status) <> 'cancelled'\ngroup by c.customer_id, c.customer_name\n",
+ "model_sql": "WITH customers_src AS (\n    SELECT customer_id, customer_name\n    FROM {{ source('legacy', 'customers') }}\n),\nvalid_orders AS (\n    -- T-SQL: status <> 'cancelled' is case-insensitive, ignores trailing spaces,\n    -- and is NULL (excluded) when status is NULL.\n    SELECT customer_id, amount\n    FROM {{ source('legacy', 'orders') }}\n    WHERE status IS NOT NULL\n      AND UPPER(RTRIM(status)) <> 'CANCELLED'\n),\norder_agg AS (\n    SELECT\n        customer_id,\n        COUNT(*) AS order_count,\n        SUM(amount) AS total_amount\n    FROM valid_orders\n    GROUP BY customer_id\n),\ncombined AS (\n    SELECT\n        c.customer_id,\n        c.customer_name,\n        CAST(COALESCE(a.order_count, 0) AS INTEGER) AS order_count,\n        CAST(COALESCE(a.total_amount, 0) AS DECIMAL(18,2)) AS total_amount\n    FROM customers_src c\n    LEFT JOIN order_agg a\n        ON a.customer_id = c.customer_id\n)\nSELECT\n    customer_id,\n    customer_name,\n    order_count,\n    total_amount,\n    CASE\n        WHEN total_amount >= 1000 THEN 'gold'\n        WHEN total_amount >= 500 THEN 'silver'\n        ELSE 'bronze'\n    END AS tier\nFROM combined",
  "history": [
   {
    "attempt": 1,
+   "sql": "WITH customers_src AS (\n    SELECT customer_id, customer_name\n    FROM {{ source('legacy', 'customers') }}\n),\nvalid_orders AS (\n    -- T-SQL: status <> 'cancelled' is case-insensitive, ignores trailing spaces,\n    -- and is NULL (excluded) when status is NULL.\n    SELECT customer_id, amount\n    FROM {{ source('legacy', 'orders') }}\n    WHERE status IS NOT NULL\n      AND UPPER(RTRIM(status)) <> 'CANCELLED'\n),\norder_agg AS (\n    SELECT\n        customer_id,\n        COUNT(*) AS order_count,\n        SUM(amount) AS total_amount\n    FROM valid_orders\n    GROUP BY customer_id\n),\ncombined AS (\n    SELECT\n        c.customer_id,\n        c.customer_name,\n        CAST(COALESCE(a.order_count, 0) AS INTEGER) AS order_count,\n        CAST(COALESCE(a.total_amount, 0) AS DECIMAL(18,2)) AS total_amount\n    FROM customers_src c\n    LEFT JOIN order_agg a\n        ON a.customer_id = c.customer_id\n)\nSELECT\n    customer_id,\n    customer_name,\n    order_count,\n    total_amount,\n    CASE\n        WHEN total_amount >= 1000 THEN 'gold'\n        WHEN total_amount >= 500 THEN 'silver'\n        ELSE 'bronze'\n    END AS tier\nFROM combined",
    "status": "match",
    "detail": {
     "equivalent": true,
@@ -20,5 +21,17 @@
     "issues": []
    }
   }
- ]
+ ],
+ "explanation": "This procedure rebuilds a customer order summary table. For each customer, it counts their orders and totals their order amounts, excluding cancelled orders. It then assigns a tier: gold for totals of 1000 or more, silver for 500 to 999.99, and bronze otherwise. The model below does the same work with set-based joins, and it reproduces SQL Server's case-insensitive and trailing-space-insensitive matching on the status column.",
+ "llm_calls": [
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 1801,
+   "output_tokens": 1912,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.001136
+  }
+ ],
+ "cost_usd": 0.001136
 }

@@ -1,8 +1,14 @@
 
   
   create view "warehouse"."main"."cancel_pct_int_division__dbt_tmp" as (
-    select customer_id, count(*) as total_orders,
-  sum(case when lower(status) = 'cancelled' then 1 else 0 end) as cancelled_orders,
-  sum(case when lower(status) = 'cancelled' then 1 else 0 end) * 100 // count(*) as cancel_pct
-from "warehouse"."legacy"."orders" group by customer_id
+    select
+    customer_id,
+    cast(count(*) as integer) as total_orders,
+    cast(sum(case when upper(rtrim(status)) = 'CANCELLED' then 1 else 0 end) as integer) as cancelled_orders,
+    cast(
+        (sum(case when upper(rtrim(status)) = 'CANCELLED' then 1 else 0 end) * 100) // count(*)
+        as integer
+    ) as cancel_pct
+from "warehouse"."legacy"."orders"
+group by customer_id
   );

@@ -8,10 +8,11 @@
  "status": "verified",
  "attempts": 1,
  "rows": 27,
- "model_sql": "select a.product_id as product_a, b.product_id as product_b, count(distinct a.order_id) as together\nfrom {{ source('legacy', 'order_items') }} a join {{ source('legacy', 'order_items') }} b on a.order_id = b.order_id and a.product_id < b.product_id\ngroup by 1, 2\n",
+ "model_sql": "SELECT\n    a.product_id AS product_a,\n    b.product_id AS product_b,\n    COUNT(DISTINCT a.order_id) AS together\nFROM {{ source('legacy', 'order_items') }} AS a\nJOIN {{ source('legacy', 'order_items') }} AS b\n    ON a.order_id = b.order_id\n   AND a.product_id < b.product_id\nGROUP BY a.product_id, b.product_id",
  "history": [
   {
    "attempt": 1,
+   "sql": "SELECT\n    a.product_id AS product_a,\n    b.product_id AS product_b,\n    COUNT(DISTINCT a.order_id) AS together\nFROM {{ source('legacy', 'order_items') }} AS a\nJOIN {{ source('legacy', 'order_items') }} AS b\n    ON a.order_id = b.order_id\n   AND a.product_id < b.product_id\nGROUP BY a.product_id, b.product_id",
    "status": "match",
    "detail": {
     "equivalent": true,
@@ -20,5 +21,17 @@
     "issues": []
    }
   }
- ]
+ ],
+ "explanation": "This procedure finds pairs of products that are bought in the same order. For each pair (with the lower product ID listed first), it counts how many distinct orders contain both products. The result is a cross-sell table that shows which products tend to be purchased together.",
+ "llm_calls": [
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 1505,
+   "output_tokens": 391,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.000346
+  }
+ ],
+ "cost_usd": 0.000346
 }

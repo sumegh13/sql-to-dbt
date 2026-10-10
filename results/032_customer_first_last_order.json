@@ -10,10 +10,11 @@
  "status": "verified",
  "attempts": 1,
  "rows": 10,
- "model_sql": "select distinct customer_id,\n  first_value(order_id) over (partition by customer_id order by order_date, order_id rows between unbounded preceding and unbounded following) as first_order,\n  last_value(order_id) over (partition by customer_id order by order_date, order_id rows between unbounded preceding and unbounded following) as last_order\nfrom {{ source('legacy', 'orders') }}\n",
+ "model_sql": "SELECT DISTINCT\n  customer_id,\n  FIRST_VALUE(order_id) OVER (\n    PARTITION BY customer_id\n    ORDER BY order_date ASC NULLS FIRST, order_id ASC NULLS FIRST\n    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING\n  ) AS first_order,\n  LAST_VALUE(order_id) OVER (\n    PARTITION BY customer_id\n    ORDER BY order_date ASC NULLS FIRST, order_id ASC NULLS FIRST\n    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING\n  ) AS last_order\nFROM {{ source('legacy', 'orders') }}",
  "history": [
   {
    "attempt": 1,
+   "sql": "SELECT DISTINCT\n  customer_id,\n  FIRST_VALUE(order_id) OVER (\n    PARTITION BY customer_id\n    ORDER BY order_date ASC NULLS FIRST, order_id ASC NULLS FIRST\n    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING\n  ) AS first_order,\n  LAST_VALUE(order_id) OVER (\n    PARTITION BY customer_id\n    ORDER BY order_date ASC NULLS FIRST, order_id ASC NULLS FIRST\n    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING\n  ) AS last_order\nFROM {{ source('legacy', 'orders') }}",
    "status": "match",
    "detail": {
     "equivalent": true,
@@ -22,5 +23,17 @@
     "issues": []
    }
   }
- ]
+ ],
+ "explanation": "For each customer, this procedure finds the order_id of their earliest order and of their latest order, using order_date and then order_id to break ties. It writes one row per customer with those two order IDs. The output is rebuilt from scratch on each run.",
+ "llm_calls": [
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 1605,
+   "output_tokens": 1245,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.000783
+  }
+ ],
+ "cost_usd": 0.000783
 }

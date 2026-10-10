@@ -1,2 +1,7 @@
-select year(order_date) as yr, month(order_date) as mo, sum(amount) as revenue
-from "warehouse"."legacy"."orders" where lower(status) not in ('cancelled','returned') group by 1, 2
+SELECT
+    CAST(YEAR(order_date) AS INTEGER) AS yr,
+    CAST(MONTH(order_date) AS INTEGER) AS mo,
+    CAST(SUM(amount) AS DECIMAL(38,2)) AS revenue
+FROM "warehouse"."legacy"."orders"
+WHERE UPPER(RTRIM(status)) NOT IN ('CANCELLED', 'RETURNED')
+GROUP BY YEAR(order_date), MONTH(order_date)

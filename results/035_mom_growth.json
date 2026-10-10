@@ -10,10 +10,11 @@
  "status": "verified",
  "attempts": 1,
  "rows": 4,
- "model_sql": "with m as (select year(order_date) as yr, month(order_date) as mo, sum(amount) as rev from {{ source('legacy', 'orders') }}\n           where lower(status) not in ('cancelled','returned') group by 1, 2)\nselect yr, mo, rev, lag(rev) over (order by yr, mo) as prev_rev,\n  round((rev - lag(rev) over (order by yr, mo)) * 100.0 / nullif(lag(rev) over (order by yr, mo), 0), 2) as growth_pct\nfrom m\n",
+ "model_sql": "WITH m AS (\n    SELECT\n        CAST(year(order_date) AS INTEGER) AS yr,\n        CAST(month(order_date) AS INTEGER) AS mo,\n        SUM(amount) AS rev\n    FROM {{ source('legacy', 'orders') }}\n    WHERE rtrim(lower(status)) NOT IN ('cancelled', 'returned')\n    GROUP BY year(order_date), month(order_date)\n),\ns AS (\n    SELECT\n        yr,\n        mo,\n        rev,\n        LAG(rev) OVER (ORDER BY yr NULLS FIRST, mo NULLS FIRST) AS prev_rev\n    FROM m\n)\nSELECT\n    yr,\n    mo,\n    rev,\n    prev_rev,\n    ROUND(CAST(rev - prev_rev AS DECIMAL(38, 10)) * 100.0 / NULLIF(prev_rev, 0), 2) AS growth_pct\nFROM s",
  "history": [
   {
    "attempt": 1,
+   "sql": "WITH m AS (\n    SELECT\n        CAST(year(order_date) AS INTEGER) AS yr,\n        CAST(month(order_date) AS INTEGER) AS mo,\n        SUM(amount) AS rev\n    FROM {{ source('legacy', 'orders') }}\n    WHERE rtrim(lower(status)) NOT IN ('cancelled', 'returned')\n    GROUP BY year(order_date), month(order_date)\n),\ns AS (\n    SELECT\n        yr,\n        mo,\n        rev,\n        LAG(rev) OVER (ORDER BY yr NULLS FIRST, mo NULLS FIRST) AS prev_rev\n    FROM m\n)\nSELECT\n    yr,\n    mo,\n    rev,\n    prev_rev,\n    ROUND(CAST(rev - prev_rev AS DECIMAL(38, 10)) * 100.0 / NULLIF(prev_rev, 0), 2) AS growth_pct\nFROM s",
    "status": "match",
    "detail": {
     "equivalent": true,
@@ -22,5 +23,17 @@
     "issues": []
    }
   }
- ]
+ ],
+ "explanation": "This procedure builds a month-over-month revenue report from the orders table. It totals order amounts by calendar month, leaving out cancelled and returned orders, and then shows each month's revenue alongside the previous month's figure and the percentage change. The first month has no previous value, so its growth is blank, and a month with zero prior revenue also gets a blank growth rate.",
+ "llm_calls": [
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 1632,
+   "output_tokens": 2105,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.001216
+  }
+ ],
+ "cost_usd": 0.001216
 }

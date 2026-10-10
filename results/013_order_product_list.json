@@ -8,10 +8,11 @@
  "status": "verified",
  "attempts": 1,
  "rows": 34,
- "model_sql": "select o.order_id, string_agg(p.product_name, ', ' order by p.product_name) as products\nfrom {{ source('legacy', 'orders') }} o join {{ source('legacy', 'order_items') }} i on i.order_id = o.order_id\njoin {{ source('legacy', 'products') }} p on p.product_id = i.product_id group by o.order_id\n",
+ "model_sql": "SELECT\n    o.order_id,\n    string_agg(p.product_name, ', ' ORDER BY lower(rtrim(p.product_name))) AS products\nFROM {{ source('legacy', 'orders') }} o\nJOIN {{ source('legacy', 'order_items') }} i\n    ON i.order_id = o.order_id\nJOIN {{ source('legacy', 'products') }} p\n    ON p.product_id = i.product_id\nGROUP BY o.order_id",
  "history": [
   {
    "attempt": 1,
+   "sql": "SELECT\n    o.order_id,\n    string_agg(p.product_name, ', ' ORDER BY lower(rtrim(p.product_name))) AS products\nFROM {{ source('legacy', 'orders') }} o\nJOIN {{ source('legacy', 'order_items') }} i\n    ON i.order_id = o.order_id\nJOIN {{ source('legacy', 'products') }} p\n    ON p.product_id = i.product_id\nGROUP BY o.order_id",
    "status": "match",
    "detail": {
     "equivalent": true,
@@ -20,5 +21,17 @@
     "issues": []
    }
   }
- ]
+ ],
+ "explanation": "This procedure builds a one-row-per-order summary table listing the names of the products in each order, alphabetically and separated by commas. Orders with no line items are left out, because the join requires a matching item and product. If the same product appears on more than one line of an order, its name is listed once per line.",
+ "llm_calls": [
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 1504,
+   "output_tokens": 915,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.000608
+  }
+ ],
+ "cost_usd": 0.000608
 }

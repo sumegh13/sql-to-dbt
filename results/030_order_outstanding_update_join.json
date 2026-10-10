@@ -9,10 +9,11 @@
  "status": "verified",
  "attempts": 1,
  "rows": 34,
- "model_sql": "select o.order_id, o.amount, coalesce(x.total, 0) as paid, o.amount - coalesce(x.total, 0) as outstanding, x.last_dt as last_paid\nfrom {{ source('legacy', 'orders') }} o\nleft join (select order_id, sum(paid_amount) as total, max(paid_date) as last_dt from {{ source('legacy', 'payments') }} group by order_id) x\n  on x.order_id = o.order_id\n",
+ "model_sql": "WITH pay AS (\n    SELECT order_id,\n           SUM(paid_amount) AS total,\n           MAX(paid_date) AS last_dt\n    FROM {{ source('legacy', 'payments') }}\n    GROUP BY order_id\n),\nt AS (\n    SELECT o.order_id,\n           o.amount,\n           CASE WHEN p.order_id IS NULL THEN CAST(0 AS DECIMAL(18,2))\n                ELSE CAST(p.total AS DECIMAL(18,2)) END AS paid,\n           CASE WHEN p.order_id IS NULL THEN CAST(NULL AS DATE)\n                ELSE p.last_dt END AS last_paid\n    FROM {{ source('legacy', 'orders') }} o\n    LEFT JOIN pay p ON p.order_id = o.order_id\n)\nSELECT order_id,\n       amount,\n       paid,\n       amount - paid AS outstanding,\n       last_paid\nFROM t",
  "history": [
   {
    "attempt": 1,
+   "sql": "WITH pay AS (\n    SELECT order_id,\n           SUM(paid_amount) AS total,\n           MAX(paid_date) AS last_dt\n    FROM {{ source('legacy', 'payments') }}\n    GROUP BY order_id\n),\nt AS (\n    SELECT o.order_id,\n           o.amount,\n           CASE WHEN p.order_id IS NULL THEN CAST(0 AS DECIMAL(18,2))\n                ELSE CAST(p.total AS DECIMAL(18,2)) END AS paid,\n           CASE WHEN p.order_id IS NULL THEN CAST(NULL AS DATE)\n                ELSE p.last_dt END AS last_paid\n    FROM {{ source('legacy', 'orders') }} o\n    LEFT JOIN pay p ON p.order_id = o.order_id\n)\nSELECT order_id,\n       amount,\n       paid,\n       amount - paid AS outstanding,\n       last_paid\nFROM t",
    "status": "match",
    "detail": {
     "equivalent": true,
@@ -21,5 +22,17 @@
     "issues": []
    }
   }
- ]
+ ],
+ "explanation": "This procedure builds one row per order showing how much has been paid and what is still owed. Each order's payments are totaled, and the most recent payment date is recorded. Orders with no payments show zero paid and no last payment date. Outstanding is the order amount minus the amount paid.",
+ "llm_calls": [
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 1634,
+   "output_tokens": 2026,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.001176
+  }
+ ],
+ "cost_usd": 0.001176
 }

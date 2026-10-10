@@ -1,7 +1,19 @@
 
   
   create view "warehouse"."main"."customer_spend_quartiles__dbt_tmp" as (
-    with s as (select customer_id, sum(amount) as spend from "warehouse"."legacy"."orders"
-           where lower(status) not in ('cancelled','returned') group by customer_id)
-select customer_id, spend, ntile(4) over (order by spend desc, customer_id) as quartile from s
+    WITH s AS (
+    SELECT
+        customer_id,
+        SUM(amount) AS spend
+    FROM "warehouse"."legacy"."orders"
+    WHERE RTRIM(UPPER(status)) NOT IN ('CANCELLED', 'RETURNED')
+    GROUP BY customer_id
+)
+SELECT
+    customer_id,
+    spend,
+    NTILE(4) OVER (
+        ORDER BY spend DESC NULLS LAST, customer_id ASC NULLS FIRST
+    ) AS quartile
+FROM s
   );

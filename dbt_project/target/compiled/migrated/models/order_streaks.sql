@@ -1,5 +1,18 @@
-with d as (select distinct customer_id, order_date from "warehouse"."legacy"."orders"),
-g as (select customer_id, order_date,
-        order_date - cast(row_number() over (partition by customer_id order by order_date) as integer) as grp from d)
-select customer_id, min(order_date) as streak_start, max(order_date) as streak_end, count(*) as days
-from g group by customer_id, grp
+WITH d AS (
+    SELECT DISTINCT customer_id, order_date
+    FROM "warehouse"."legacy"."orders"
+),
+g AS (
+    SELECT
+        customer_id,
+        order_date,
+        order_date - CAST(ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY order_date) AS INTEGER) AS grp
+    FROM d
+)
+SELECT
+    customer_id,
+    MIN(order_date) AS streak_start,
+    MAX(order_date) AS streak_end,
+    COUNT(*) AS days
+FROM g
+GROUP BY customer_id, grp

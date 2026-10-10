@@ -4,3 +4,9 @@ migrated:
     dev:
       type: duckdb
       path: target/warehouse.duckdb
+      threads: 1
+      settings:
+        # model SQL is LLM-generated: no filesystem/network reads or writes from queries
+        enable_external_access: false
+        autoinstall_known_extensions: false
+        autoload_known_extensions: false

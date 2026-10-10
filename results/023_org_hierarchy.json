@@ -8,10 +8,11 @@
  "status": "verified",
  "attempts": 1,
  "rows": 10,
- "model_sql": "with recursive h as (\n  select employee_id, emp_name, manager_id, 0 as lvl, cast(emp_name as varchar) as path\n  from {{ source('legacy', 'employees') }} where manager_id is null\n  union all\n  select e.employee_id, e.emp_name, e.manager_id, h.lvl + 1, h.path || ' > ' || e.emp_name\n  from {{ source('legacy', 'employees') }} e join h on e.manager_id = h.employee_id)\nselect employee_id, emp_name, lvl, path from h\n",
+ "model_sql": "WITH RECURSIVE h AS (\n  SELECT employee_id, emp_name, manager_id, 0 AS lvl, CAST(emp_name AS VARCHAR) AS path\n  FROM {{ source('legacy', 'employees') }}\n  WHERE manager_id IS NULL\n  UNION ALL\n  SELECT e.employee_id, e.emp_name, e.manager_id, h.lvl + 1,\n         LEFT(h.path || ' > ' || e.emp_name, 500)\n  FROM {{ source('legacy', 'employees') }} e\n  JOIN h ON e.manager_id = h.employee_id\n)\nSELECT employee_id, emp_name, lvl, path\nFROM h",
  "history": [
   {
    "attempt": 1,
+   "sql": "WITH RECURSIVE h AS (\n  SELECT employee_id, emp_name, manager_id, 0 AS lvl, CAST(emp_name AS VARCHAR) AS path\n  FROM {{ source('legacy', 'employees') }}\n  WHERE manager_id IS NULL\n  UNION ALL\n  SELECT e.employee_id, e.emp_name, e.manager_id, h.lvl + 1,\n         LEFT(h.path || ' > ' || e.emp_name, 500)\n  FROM {{ source('legacy', 'employees') }} e\n  JOIN h ON e.manager_id = h.employee_id\n)\nSELECT employee_id, emp_name, lvl, path\nFROM h",
    "status": "match",
    "detail": {
     "equivalent": true,
@@ -20,5 +21,17 @@
     "issues": []
    }
   }
- ]
+ ],
+ "explanation": "This procedure builds an organisation chart from the employees table. It starts at the top-level employees (those with no manager), then walks down through each reporting line, recording each person's depth and a \" > \"-separated path from the top manager to them. The result replaces the org_hierarchy table on each run.",
+ "llm_calls": [
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 1613,
+   "output_tokens": 1618,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.00097
+  }
+ ],
+ "cost_usd": 0.00097
 }

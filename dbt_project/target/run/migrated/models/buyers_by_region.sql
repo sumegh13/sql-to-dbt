@@ -1,6 +1,15 @@
 
   
   create view "warehouse"."main"."buyers_by_region__dbt_tmp" as (
-    select c.region, count(distinct c.customer_id) as buyers
-from "warehouse"."legacy"."customers" c join "warehouse"."legacy"."orders" o on o.customer_id = c.customer_id group by c.region
+    WITH buyer_rows AS (
+    SELECT c.region, c.customer_id
+    FROM "warehouse"."legacy"."customers" c
+    INNER JOIN "warehouse"."legacy"."orders" o
+        ON o.customer_id = c.customer_id
+)
+SELECT
+    MIN(region) AS region,
+    COUNT(DISTINCT customer_id) AS buyers
+FROM buyer_rows
+GROUP BY UPPER(RTRIM(region))
   );

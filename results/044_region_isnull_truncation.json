@@ -8,10 +8,11 @@
  "status": "verified",
  "attempts": 1,
  "rows": 12,
- "model_sql": "select customer_id,\n  coalesce(region, left('Not_Assigned_Yet', 10)) as region_isnull,\n  coalesce(region, 'Not_Assigned_Yet') as region_coalesce\nfrom {{ source('legacy', 'customers') }}\n",
+ "model_sql": "SELECT\n    customer_id,\n    CASE WHEN region IS NULL THEN LEFT('Not_Assigned_Yet', 10) ELSE region END AS region_isnull,\n    COALESCE(region, 'Not_Assigned_Yet') AS region_coalesce\nFROM {{ source('legacy', 'customers') }}",
  "history": [
   {
    "attempt": 1,
+   "sql": "SELECT\n    customer_id,\n    CASE WHEN region IS NULL THEN LEFT('Not_Assigned_Yet', 10) ELSE region END AS region_isnull,\n    COALESCE(region, 'Not_Assigned_Yet') AS region_coalesce\nFROM {{ source('legacy', 'customers') }}",
    "status": "match",
    "detail": {
     "equivalent": true,
@@ -20,5 +21,17 @@
     "issues": []
    }
   }
- ]
+ ],
+ "explanation": "This procedure copies every customer's ID and region into a new table, filling in missing regions with the placeholder \"Not_Assigned_Yet\" using two different functions. ISNULL cuts the placeholder down to 10 characters, because the region column is only 10 characters wide, so it is stored as \"Not_Assign\". COALESCE keeps the full placeholder text. The model reproduces that difference exactly and returns one row per customer.",
+ "llm_calls": [
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 1486,
+   "output_tokens": 971,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.000634
+  }
+ ],
+ "cost_usd": 0.000634
 }
