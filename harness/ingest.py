@@ -198,7 +198,7 @@ def safe_extract(zip_bytes: bytes, dest: Path):
             raise ValueError("Archive expands to more than 200 MB.")
         for info in z.infolist():
             target = (dest / info.filename).resolve()
-            if not str(target).startswith(str(dest.resolve())):  # zip-slip
+            if not target.is_relative_to(dest.resolve()):  # zip-slip
                 raise ValueError(f"Unsafe path in archive: {info.filename}")
             if info.is_dir():
                 target.mkdir(parents=True, exist_ok=True)
@@ -227,7 +227,9 @@ def from_github(url: str, root: Path, token: str | None = None, workdir: Path | 
     workdir.mkdir(parents=True)
     safe_extract(raw, workdir)
     top = next(workdir.iterdir())  # zipball wraps everything in owner-repo-sha/
-    src = top / sub if sub else top
+    src = (top / sub).resolve() if sub else top
+    if not src.is_relative_to(top.resolve()):
+        raise ValueError(f"Path {sub!r} is outside the repository")
     if not src.exists():
         raise ValueError(f"Path {sub!r} not found in the repository")
     return from_files(src, root)

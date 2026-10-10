@@ -78,7 +78,11 @@ async def api_create(
         if not files:
             raise HTTPException(400, "Choose a folder or a .zip file.")
         job = jobs.new_job("upload", {"files": len(files)}, secrets)
-        await _save_upload(files, job.dir / "input")
+        try:
+            await _save_upload(files, job.dir / "input")
+        except HTTPException as e:
+            jobs.write_status(job.id, state="failed", error=e.detail)
+            raise
     elif source == "github":
         if not re.match(r"https?://github\.com/[\w.-]+/[\w.-]+", github_url.strip()):
             raise HTTPException(400, "Enter a GitHub URL like https://github.com/owner/repo")

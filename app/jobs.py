@@ -151,7 +151,7 @@ def _run(job: Job):
         cost = sum(s.get("cost_usd") or 0 for s in statuses)
         write_status(jid, state="done", finished=time.time(), dbt_build_ok=ok,
                      summary={"verified": verified, "total": total, "cost_usd": round(cost, 4)})
-    except Exception as e:
+    except BaseException as e:  # harness code raises SystemExit for CLI use; it must not kill the worker
         write_status(jid, state="failed", error=f"{type(e).__name__}: {e}", trace=traceback.format_exc()[-3000:])
     finally:
         os.environ.pop("ANTHROPIC_API_KEY", None)
