@@ -7,31 +7,39 @@
  ],
  "status": "verified",
  "attempts": 1,
- "rows": 12,
- "model_sql": "WITH spend AS (\n    SELECT\n        customer_id,\n        SUM(amount) AS spend\n    FROM {{ source('legacy', 'orders') }}\n    WHERE rtrim(lower(status)) NOT IN ('cancelled', 'returned')\n    GROUP BY customer_id\n),\njoined AS (\n    SELECT\n        c.customer_id,\n        c.customer_name,\n        COALESCE(s.spend, 0) AS spend\n    FROM {{ source('legacy', 'customers') }} c\n    LEFT JOIN spend s\n        ON s.customer_id = c.customer_id\n),\nflagged AS (\n    SELECT\n        customer_id,\n        customer_name,\n        spend,\n        spend * COUNT(*) OVER () > SUM(spend) OVER () AS is_above\n    FROM joined\n)\nSELECT\n    customer_id,\n    customer_name,\n    spend,\n    CASE WHEN is_above THEN 'above_avg' ELSE 'at_or_below_avg' END AS vs_avg\nFROM flagged",
+ "rows": 43,
+ "datasets": {
+  "base": 12,
+  "seed_101": 12,
+  "seed_202": 12,
+  "edge": 7
+ },
+ "model_sql": "WITH spend AS (\n    SELECT\n        customer_id,\n        CAST(SUM(amount) AS DECIMAL(38,2)) AS spend\n    FROM {{ source('legacy', 'orders') }}\n    WHERE RTRIM(LOWER(status)) NOT IN ('cancelled', 'returned')\n    GROUP BY customer_id\n),\njoined AS (\n    SELECT\n        c.customer_id,\n        c.customer_name,\n        CAST(COALESCE(s.spend, 0) AS DECIMAL(38,2)) AS spend\n    FROM {{ source('legacy', 'customers') }} c\n    LEFT JOIN spend s\n        ON s.customer_id = c.customer_id\n),\navg_spend AS (\n    -- T-SQL AVG over DECIMAL(38,2) keeps scale 2 and truncates the result\n    SELECT\n        CAST(TRUNC(SUM(spend) * 100 / NULLIF(COUNT(*), 0)) / 100 AS DECIMAL(38,2)) AS avg_spend\n    FROM joined\n)\nSELECT\n    j.customer_id,\n    j.customer_name,\n    j.spend,\n    CASE WHEN j.spend > a.avg_spend THEN 'above_avg' ELSE 'at_or_below_avg' END AS vs_avg\nFROM joined j\nCROSS JOIN avg_spend a",
  "history": [
   {
    "attempt": 1,
-   "sql": "WITH spend AS (\n    SELECT\n        customer_id,\n        SUM(amount) AS spend\n    FROM {{ source('legacy', 'orders') }}\n    WHERE rtrim(lower(status)) NOT IN ('cancelled', 'returned')\n    GROUP BY customer_id\n),\njoined AS (\n    SELECT\n        c.customer_id,\n        c.customer_name,\n        COALESCE(s.spend, 0) AS spend\n    FROM {{ source('legacy', 'customers') }} c\n    LEFT JOIN spend s\n        ON s.customer_id = c.customer_id\n),\nflagged AS (\n    SELECT\n        customer_id,\n        customer_name,\n        spend,\n        spend * COUNT(*) OVER () > SUM(spend) OVER () AS is_above\n    FROM joined\n)\nSELECT\n    customer_id,\n    customer_name,\n    spend,\n    CASE WHEN is_above THEN 'above_avg' ELSE 'at_or_below_avg' END AS vs_avg\nFROM flagged",
+   "sql": "WITH spend AS (\n    SELECT\n        customer_id,\n        CAST(SUM(amount) AS DECIMAL(38,2)) AS spend\n    FROM {{ source('legacy', 'orders') }}\n    WHERE RTRIM(LOWER(status)) NOT IN ('cancelled', 'returned')\n    GROUP BY customer_id\n),\njoined AS (\n    SELECT\n        c.customer_id,\n        c.customer_name,\n        CAST(COALESCE(s.spend, 0) AS DECIMAL(38,2)) AS spend\n    FROM {{ source('legacy', 'customers') }} c\n    LEFT JOIN spend s\n        ON s.customer_id = c.customer_id\n),\navg_spend AS (\n    -- T-SQL AVG over DECIMAL(38,2) keeps scale 2 and truncates the result\n    SELECT\n        CAST(TRUNC(SUM(spend) * 100 / NULLIF(COUNT(*), 0)) / 100 AS DECIMAL(38,2)) AS avg_spend\n    FROM joined\n)\nSELECT\n    j.customer_id,\n    j.customer_name,\n    j.spend,\n    CASE WHEN j.spend > a.avg_spend THEN 'above_avg' ELSE 'at_or_below_avg' END AS vs_avg\nFROM joined j\nCROSS JOIN avg_spend a",
    "status": "match",
    "detail": {
-    "equivalent": true,
-    "legacy_rows": 12,
-    "new_rows": 12,
-    "issues": []
+    "datasets": {
+     "base": 12,
+     "seed_101": 12,
+     "seed_202": 12,
+     "edge": 7
+    }
    }
   }
  ],
- "explanation": "This procedure gives each customer their total spend, excluding orders whose status is cancelled or returned. Customers with no qualifying orders are kept with a spend of zero. Each customer is then labeled \"above_avg\" or \"at_or_below_avg\" depending on whether their spend exceeds the average spend across all customers. The result is written to a table that is rebuilt on each run.",
+ "explanation": "This procedure totals each customer's spend from orders, leaving out cancelled and returned orders, and includes every customer even if they have no qualifying orders (their spend is 0). It then compares each customer's spend with the average across all customers and labels them 'above_avg' or 'at_or_below_avg'. The result is written to a single output table.",
  "llm_calls": [
   {
    "model": "claude-haiku-5-5",
    "input_tokens": 1653,
-   "output_tokens": 2717,
+   "output_tokens": 2878,
    "cache_write_tokens": 0,
    "cache_read_tokens": 0,
-   "cost_usd": 0.001524
+   "cost_usd": 0.001604
   }
  ],
- "cost_usd": 0.001524
+ "cost_usd": 0.001604
 }

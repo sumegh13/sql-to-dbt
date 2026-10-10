@@ -7,31 +7,39 @@
  ],
  "status": "verified",
  "attempts": 1,
- "rows": 12,
- "model_sql": "SELECT\n    c.customer_id,\n    SUM(CASE WHEN rtrim(lower(o.status)) = 'shipped' THEN o.amount ELSE CAST(0 AS DECIMAL(18,2)) END) AS shipped_amt,\n    SUM(CASE WHEN rtrim(lower(o.status)) = 'pending' THEN o.amount ELSE CAST(0 AS DECIMAL(18,2)) END) AS pending_amt,\n    SUM(CASE WHEN rtrim(lower(o.status)) = 'cancelled' THEN o.amount ELSE CAST(0 AS DECIMAL(18,2)) END) AS cancelled_amt,\n    MAX(o.order_date) AS last_order,\n    COUNT(o.order_id) AS orders\nFROM {{ source('legacy', 'customers') }} c\nLEFT JOIN {{ source('legacy', 'orders') }} o\n    ON o.customer_id = c.customer_id\nGROUP BY c.customer_id",
+ "rows": 43,
+ "datasets": {
+  "base": 12,
+  "seed_101": 12,
+  "seed_202": 12,
+  "edge": 7
+ },
+ "model_sql": "SELECT\n    c.customer_id,\n    SUM(CASE WHEN lower(rtrim(o.status)) = 'shipped' THEN o.amount ELSE 0 END) AS shipped_amt,\n    SUM(CASE WHEN lower(rtrim(o.status)) = 'pending' THEN o.amount ELSE 0 END) AS pending_amt,\n    SUM(CASE WHEN lower(rtrim(o.status)) = 'cancelled' THEN o.amount ELSE 0 END) AS cancelled_amt,\n    MAX(o.order_date) AS last_order,\n    COUNT(o.order_id) AS orders\nFROM {{ source('legacy', 'customers') }} c\nLEFT JOIN {{ source('legacy', 'orders') }} o\n    ON o.customer_id = c.customer_id\nGROUP BY c.customer_id",
  "history": [
   {
    "attempt": 1,
-   "sql": "SELECT\n    c.customer_id,\n    SUM(CASE WHEN rtrim(lower(o.status)) = 'shipped' THEN o.amount ELSE CAST(0 AS DECIMAL(18,2)) END) AS shipped_amt,\n    SUM(CASE WHEN rtrim(lower(o.status)) = 'pending' THEN o.amount ELSE CAST(0 AS DECIMAL(18,2)) END) AS pending_amt,\n    SUM(CASE WHEN rtrim(lower(o.status)) = 'cancelled' THEN o.amount ELSE CAST(0 AS DECIMAL(18,2)) END) AS cancelled_amt,\n    MAX(o.order_date) AS last_order,\n    COUNT(o.order_id) AS orders\nFROM {{ source('legacy', 'customers') }} c\nLEFT JOIN {{ source('legacy', 'orders') }} o\n    ON o.customer_id = c.customer_id\nGROUP BY c.customer_id",
+   "sql": "SELECT\n    c.customer_id,\n    SUM(CASE WHEN lower(rtrim(o.status)) = 'shipped' THEN o.amount ELSE 0 END) AS shipped_amt,\n    SUM(CASE WHEN lower(rtrim(o.status)) = 'pending' THEN o.amount ELSE 0 END) AS pending_amt,\n    SUM(CASE WHEN lower(rtrim(o.status)) = 'cancelled' THEN o.amount ELSE 0 END) AS cancelled_amt,\n    MAX(o.order_date) AS last_order,\n    COUNT(o.order_id) AS orders\nFROM {{ source('legacy', 'customers') }} c\nLEFT JOIN {{ source('legacy', 'orders') }} o\n    ON o.customer_id = c.customer_id\nGROUP BY c.customer_id",
    "status": "match",
    "detail": {
-    "equivalent": true,
-    "legacy_rows": 12,
-    "new_rows": 12,
-    "issues": []
+    "datasets": {
+     "base": 12,
+     "seed_101": 12,
+     "seed_202": 12,
+     "edge": 7
+    }
    }
   }
  ],
- "explanation": "This procedure builds a per-customer scorecard by joining every customer to their orders, including customers with no orders. For each customer it totals order amounts by status (shipped, pending, cancelled), records the date of the most recent order, and counts orders. The result is written to the customer_scorecard table, replacing any previous version.",
+ "explanation": "This procedure builds a per-customer order summary. For every customer, it totals order amounts by status (shipped, pending, cancelled), finds the most recent order date, and counts orders. Customers with no orders still appear, with zero totals and a count of zero. The result replaces the existing dbo.customer_scorecard table.",
  "llm_calls": [
   {
    "model": "claude-haiku-5-5",
    "input_tokens": 1655,
-   "output_tokens": 1558,
+   "output_tokens": 1317,
    "cache_write_tokens": 0,
    "cache_read_tokens": 0,
-   "cost_usd": 0.000945
+   "cost_usd": 0.000824
   }
  ],
- "cost_usd": 0.000945
+ "cost_usd": 0.000824
 }

@@ -7,7 +7,13 @@
  ],
  "status": "verified",
  "attempts": 1,
- "rows": 1,
+ "rows": 6,
+ "datasets": {
+  "base": 1,
+  "seed_101": 1,
+  "seed_202": 0,
+  "edge": 4
+ },
  "model_sql": "WITH hardware_buyers AS (\n    SELECT DISTINCT o.customer_id\n    FROM {{ source('legacy', 'orders') }} o\n    JOIN {{ source('legacy', 'order_items') }} i ON i.order_id = o.order_id\n    JOIN {{ source('legacy', 'products') }} p ON p.product_id = i.product_id\n    WHERE rtrim(lower(p.category)) = 'hardware'\n),\nsoftware_buyers AS (\n    SELECT DISTINCT o.customer_id\n    FROM {{ source('legacy', 'orders') }} o\n    JOIN {{ source('legacy', 'order_items') }} i ON i.order_id = o.order_id\n    JOIN {{ source('legacy', 'products') }} p ON p.product_id = i.product_id\n    WHERE rtrim(lower(p.category)) = 'software'\n)\nSELECT customer_id FROM hardware_buyers\nEXCEPT\nSELECT customer_id FROM software_buyers",
  "history": [
   {
@@ -15,23 +21,25 @@
    "sql": "WITH hardware_buyers AS (\n    SELECT DISTINCT o.customer_id\n    FROM {{ source('legacy', 'orders') }} o\n    JOIN {{ source('legacy', 'order_items') }} i ON i.order_id = o.order_id\n    JOIN {{ source('legacy', 'products') }} p ON p.product_id = i.product_id\n    WHERE rtrim(lower(p.category)) = 'hardware'\n),\nsoftware_buyers AS (\n    SELECT DISTINCT o.customer_id\n    FROM {{ source('legacy', 'orders') }} o\n    JOIN {{ source('legacy', 'order_items') }} i ON i.order_id = o.order_id\n    JOIN {{ source('legacy', 'products') }} p ON p.product_id = i.product_id\n    WHERE rtrim(lower(p.category)) = 'software'\n)\nSELECT customer_id FROM hardware_buyers\nEXCEPT\nSELECT customer_id FROM software_buyers",
    "status": "match",
    "detail": {
-    "equivalent": true,
-    "legacy_rows": 1,
-    "new_rows": 1,
-    "issues": []
+    "datasets": {
+     "base": 1,
+     "seed_101": 1,
+     "seed_202": 0,
+     "edge": 4
+    }
    }
   }
  ],
- "explanation": "This procedure builds a list of customers who have bought at least one Hardware product but never bought any Software product. Each customer appears once in the result. The category match is case-insensitive and ignores trailing spaces, as in SQL Server's default collation.",
+ "explanation": "This procedure finds customers who have bought at least one Hardware product but have never bought a Software product. It returns each such customer ID once. The category match is case-insensitive and ignores trailing spaces, as it would be in SQL Server.",
  "llm_calls": [
   {
    "model": "claude-haiku-5-5",
    "input_tokens": 1587,
-   "output_tokens": 945,
+   "output_tokens": 1005,
    "cache_write_tokens": 0,
    "cache_read_tokens": 0,
-   "cost_usd": 0.000631
+   "cost_usd": 0.000661
   }
  ],
- "cost_usd": 0.000631
+ "cost_usd": 0.000661
 }

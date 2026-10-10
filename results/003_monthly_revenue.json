@@ -8,31 +8,39 @@
  ],
  "status": "verified",
  "attempts": 1,
- "rows": 4,
- "model_sql": "SELECT\n    CAST(YEAR(order_date) AS INTEGER) AS yr,\n    CAST(MONTH(order_date) AS INTEGER) AS mo,\n    CAST(SUM(amount) AS DECIMAL(38,2)) AS revenue\nFROM {{ source('legacy', 'orders') }}\nWHERE UPPER(RTRIM(status)) NOT IN ('CANCELLED', 'RETURNED')\nGROUP BY YEAR(order_date), MONTH(order_date)",
+ "rows": 17,
+ "datasets": {
+  "base": 4,
+  "seed_101": 4,
+  "seed_202": 4,
+  "edge": 5
+ },
+ "model_sql": "SELECT\n    CAST(EXTRACT(YEAR FROM order_date) AS INTEGER) AS yr,\n    CAST(EXTRACT(MONTH FROM order_date) AS INTEGER) AS mo,\n    CAST(SUM(amount) AS DECIMAL(38,2)) AS revenue\nFROM {{ source('legacy', 'orders') }}\nWHERE RTRIM(LOWER(status)) NOT IN ('cancelled', 'returned')\nGROUP BY\n    EXTRACT(YEAR FROM order_date),\n    EXTRACT(MONTH FROM order_date)",
  "history": [
   {
    "attempt": 1,
-   "sql": "SELECT\n    CAST(YEAR(order_date) AS INTEGER) AS yr,\n    CAST(MONTH(order_date) AS INTEGER) AS mo,\n    CAST(SUM(amount) AS DECIMAL(38,2)) AS revenue\nFROM {{ source('legacy', 'orders') }}\nWHERE UPPER(RTRIM(status)) NOT IN ('CANCELLED', 'RETURNED')\nGROUP BY YEAR(order_date), MONTH(order_date)",
+   "sql": "SELECT\n    CAST(EXTRACT(YEAR FROM order_date) AS INTEGER) AS yr,\n    CAST(EXTRACT(MONTH FROM order_date) AS INTEGER) AS mo,\n    CAST(SUM(amount) AS DECIMAL(38,2)) AS revenue\nFROM {{ source('legacy', 'orders') }}\nWHERE RTRIM(LOWER(status)) NOT IN ('cancelled', 'returned')\nGROUP BY\n    EXTRACT(YEAR FROM order_date),\n    EXTRACT(MONTH FROM order_date)",
    "status": "match",
    "detail": {
-    "equivalent": true,
-    "legacy_rows": 4,
-    "new_rows": 4,
-    "issues": []
+    "datasets": {
+     "base": 4,
+     "seed_101": 4,
+     "seed_202": 4,
+     "edge": 5
+    }
    }
   }
  ],
- "explanation": "This procedure builds a monthly revenue summary from the orders table. It counts each order's amount toward the calendar year and month of its order date, leaving out cancelled and returned orders. The result has one row per year and month with the total revenue for that period.",
+ "explanation": "This procedure builds a monthly revenue summary from the orders table. It adds up order amounts by calendar year and month, leaving out cancelled and returned orders. The result has one row per year and month that has at least one qualifying order.",
  "llm_calls": [
   {
    "model": "claude-haiku-5-5",
    "input_tokens": 1488,
-   "output_tokens": 922,
+   "output_tokens": 733,
    "cache_write_tokens": 0,
    "cache_read_tokens": 0,
-   "cost_usd": 0.00061
+   "cost_usd": 0.000515
   }
  ],
- "cost_usd": 0.00061
+ "cost_usd": 0.000515
 }

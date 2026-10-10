@@ -7,14 +7,21 @@
  ],
  "status": "verified",
  "attempts": 2,
- "rows": 3,
- "model_sql": "WITH base AS (\n    SELECT p.category, i.qty, i.unit_price\n    FROM {{ source('legacy', 'order_items') }} i\n    JOIN {{ source('legacy', 'products') }} p ON p.product_id = i.product_id\n),\nagg AS (\n    SELECT\n        MIN(category) AS category,\n        SUM(CAST(ROUND(qty * unit_price * 100) AS HUGEINT)) AS total_cents,\n        COUNT(qty * unit_price) AS n_nonnull,\n        COUNT(*) AS line_count\n    FROM base\n    GROUP BY LOWER(RTRIM(category))\n),\ncalc AS (\n    SELECT\n        category,\n        CASE\n            WHEN n_nonnull > 0\n            THEN (total_cents * 10000) // n_nonnull\n            ELSE NULL\n        END AS avg_micro,\n        line_count\n    FROM agg\n)\nSELECT\n    category,\n    CAST(CAST(avg_micro AS DECIMAL(38,6)) / CAST(1000000 AS DECIMAL(38,6)) AS DECIMAL(38,6)) AS avg_line_value,\n    line_count\nFROM calc",
+ "rows": 12,
+ "datasets": {
+  "base": 3,
+  "seed_101": 3,
+  "seed_202": 3,
+  "edge": 3
+ },
+ "model_sql": "WITH lines AS (\n    SELECT\n        p.category,\n        CAST(CAST(i.qty AS DECIMAL(18,0)) * CAST(i.unit_price AS DECIMAL(18,2)) AS DECIMAL(38,2)) AS line_value\n    FROM {{ source('legacy', 'order_items') }} i\n    JOIN {{ source('legacy', 'products') }} p\n        ON p.product_id = i.product_id\n),\nagg AS (\n    SELECT\n        LOWER(category) AS category_key,\n        MIN(category) AS category,\n        SUM(line_value) AS line_sum,\n        COUNT(line_value) AS non_null_lines,\n        COUNT(*) AS line_count\n    FROM lines\n    GROUP BY LOWER(category)\n)\nSELECT\n    category,\n    CAST(\n        (CAST(line_sum * 1000000 AS HUGEINT) // non_null_lines)\n        AS DECIMAL(38,6)\n    ) / CAST(1000000 AS DECIMAL(38,6)) AS avg_line_value,\n    line_count\nFROM agg",
  "history": [
   {
    "attempt": 1,
-   "sql": "WITH base AS (\n    SELECT p.category, i.qty, i.unit_price\n    FROM {{ source('legacy', 'order_items') }} i\n    JOIN {{ source('legacy', 'products') }} p ON p.product_id = i.product_id\n),\nagg AS (\n    SELECT\n        MIN(category) AS category,\n        SUM(CAST(ROUND(qty * unit_price * 100) AS BIGINT)) AS total_cents,\n        COUNT(qty * unit_price) AS n_nonnull,\n        COUNT(*) AS line_count\n    FROM base\n    GROUP BY LOWER(RTRIM(category))\n)\nSELECT\n    category,\n    CASE\n        WHEN n_nonnull > 0\n        THEN CAST(CAST(total_cents // n_nonnull AS DECIMAL(38,2)) / 100 AS DECIMAL(38,2))\n        ELSE NULL\n    END AS avg_line_value,\n    line_count\nFROM agg",
+   "sql": "WITH lines AS (\n    SELECT\n        p.category,\n        CAST(i.qty AS DECIMAL(10,0)) * i.unit_price AS line_value\n    FROM {{ source('legacy', 'order_items') }} i\n    JOIN {{ source('legacy', 'products') }} p\n        ON p.product_id = i.product_id\n)\nSELECT\n    MIN(category) AS category,\n    CAST(TRUNC(SUM(line_value) * 100 / COUNT(line_value)) / 100 AS DECIMAL(29,2)) AS avg_line_value,\n    COUNT(*) AS line_count\nFROM lines\nGROUP BY LOWER(category)",
    "status": "diff",
    "detail": {
+    "dataset": "base",
     "equivalent": false,
     "legacy_rows": 3,
     "new_rows": 3,
@@ -37,14 +44,14 @@
      {
       "in_new_not_legacy": [
        [
-        "Software",
-        26.62,
-        18
-       ],
-       [
         "Hardware",
         88.94,
         27
+       ],
+       [
+        "Software",
+        26.62,
+        18
        ]
       ],
       "count": 2
@@ -54,34 +61,36 @@
   },
   {
    "attempt": 2,
-   "sql": "WITH base AS (\n    SELECT p.category, i.qty, i.unit_price\n    FROM {{ source('legacy', 'order_items') }} i\n    JOIN {{ source('legacy', 'products') }} p ON p.product_id = i.product_id\n),\nagg AS (\n    SELECT\n        MIN(category) AS category,\n        SUM(CAST(ROUND(qty * unit_price * 100) AS HUGEINT)) AS total_cents,\n        COUNT(qty * unit_price) AS n_nonnull,\n        COUNT(*) AS line_count\n    FROM base\n    GROUP BY LOWER(RTRIM(category))\n),\ncalc AS (\n    SELECT\n        category,\n        CASE\n            WHEN n_nonnull > 0\n            THEN (total_cents * 10000) // n_nonnull\n            ELSE NULL\n        END AS avg_micro,\n        line_count\n    FROM agg\n)\nSELECT\n    category,\n    CAST(CAST(avg_micro AS DECIMAL(38,6)) / CAST(1000000 AS DECIMAL(38,6)) AS DECIMAL(38,6)) AS avg_line_value,\n    line_count\nFROM calc",
+   "sql": "WITH lines AS (\n    SELECT\n        p.category,\n        CAST(CAST(i.qty AS DECIMAL(18,0)) * CAST(i.unit_price AS DECIMAL(18,2)) AS DECIMAL(38,2)) AS line_value\n    FROM {{ source('legacy', 'order_items') }} i\n    JOIN {{ source('legacy', 'products') }} p\n        ON p.product_id = i.product_id\n),\nagg AS (\n    SELECT\n        LOWER(category) AS category_key,\n        MIN(category) AS category,\n        SUM(line_value) AS line_sum,\n        COUNT(line_value) AS non_null_lines,\n        COUNT(*) AS line_count\n    FROM lines\n    GROUP BY LOWER(category)\n)\nSELECT\n    category,\n    CAST(\n        (CAST(line_sum * 1000000 AS HUGEINT) // non_null_lines)\n        AS DECIMAL(38,6)\n    ) / CAST(1000000 AS DECIMAL(38,6)) AS avg_line_value,\n    line_count\nFROM agg",
    "status": "match",
    "detail": {
-    "equivalent": true,
-    "legacy_rows": 3,
-    "new_rows": 3,
-    "issues": []
+    "datasets": {
+     "base": 3,
+     "seed_101": 3,
+     "seed_202": 3,
+     "edge": 3
+    }
    }
   }
  ],
- "explanation": "This procedure rebuilds a summary table that shows, for each product category, the average line value (quantity times unit price) across all order line items and the total number of line items. It only counts items that match a known product. The model below also matches SQL Server's case-insensitive grouping, so categories that differ only in letter case or trailing spaces are merged into one row.",
+ "explanation": "This procedure builds a summary table that shows, for each product category, the average value of an order line (quantity times unit price) and the number of order lines. It joins order items to products and groups by category. The model reproduces SQL Server's case-insensitive grouping and its truncated decimal averages.",
  "llm_calls": [
   {
    "model": "claude-haiku-5-5",
    "input_tokens": 1487,
-   "output_tokens": 2811,
+   "output_tokens": 2378,
    "cache_write_tokens": 0,
    "cache_read_tokens": 0,
-   "cost_usd": 0.001554
+   "cost_usd": 0.001338
   },
   {
    "model": "claude-haiku-5-5",
-   "input_tokens": 2065,
-   "output_tokens": 2097,
+   "input_tokens": 2034,
+   "output_tokens": 2572,
    "cache_write_tokens": 0,
    "cache_read_tokens": 0,
-   "cost_usd": 0.001255
+   "cost_usd": 0.001489
   }
  ],
- "cost_usd": 0.002809
+ "cost_usd": 0.002827
 }

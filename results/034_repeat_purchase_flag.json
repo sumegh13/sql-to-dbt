@@ -8,7 +8,13 @@
  ],
  "status": "verified",
  "attempts": 1,
- "rows": 34,
+ "rows": 117,
+ "datasets": {
+  "base": 34,
+  "seed_101": 34,
+  "seed_202": 34,
+  "edge": 15
+ },
  "model_sql": "WITH base AS (\n    SELECT\n        order_id,\n        customer_id,\n        order_date,\n        LAG(order_date) OVER (\n            PARTITION BY customer_id\n            ORDER BY order_date, order_id\n        ) AS prev_date\n    FROM {{ source('legacy', 'orders') }}\n)\nSELECT\n    order_id,\n    customer_id,\n    order_date,\n    prev_date,\n    CASE\n        WHEN date_diff('day', prev_date, order_date) <= 7 THEN 1\n        ELSE 0\n    END AS is_repeat_7d\nFROM base",
  "history": [
   {
@@ -16,23 +22,25 @@
    "sql": "WITH base AS (\n    SELECT\n        order_id,\n        customer_id,\n        order_date,\n        LAG(order_date) OVER (\n            PARTITION BY customer_id\n            ORDER BY order_date, order_id\n        ) AS prev_date\n    FROM {{ source('legacy', 'orders') }}\n)\nSELECT\n    order_id,\n    customer_id,\n    order_date,\n    prev_date,\n    CASE\n        WHEN date_diff('day', prev_date, order_date) <= 7 THEN 1\n        ELSE 0\n    END AS is_repeat_7d\nFROM base",
    "status": "match",
    "detail": {
-    "equivalent": true,
-    "legacy_rows": 34,
-    "new_rows": 34,
-    "issues": []
+    "datasets": {
+     "base": 34,
+     "seed_101": 34,
+     "seed_202": 34,
+     "edge": 15
+    }
    }
   }
  ],
- "explanation": "For each order, this procedure finds the same customer's previous order by date (ties broken by order_id) and records that previous date. It flags the order as a repeat purchase (1) if the previous order was 7 or fewer days earlier, and 0 otherwise, including when there is no earlier order. The result is one row per order, saved to a table called repeat_purchase_flag.",
+ "explanation": "For each order, this procedure finds the same customer's previous order by date (using order ID as a tiebreaker) and records that previous order's date. It then flags the order as a repeat purchase (1) if the previous order was placed within 7 days, and 0 otherwise, including for a customer's first order. The result is a full rebuild of the flagged order list, one row per order.",
  "llm_calls": [
   {
    "model": "claude-haiku-5-5",
    "input_tokens": 1582,
-   "output_tokens": 990,
+   "output_tokens": 1007,
    "cache_write_tokens": 0,
    "cache_read_tokens": 0,
-   "cost_usd": 0.000653
+   "cost_usd": 0.000662
   }
  ],
- "cost_usd": 0.000653
+ "cost_usd": 0.000662
 }

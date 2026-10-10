@@ -8,31 +8,39 @@
  ],
  "status": "verified",
  "attempts": 1,
- "rows": 61,
- "model_sql": "WITH cal AS (\n    SELECT CAST(d AS DATE) AS cal_date\n    FROM generate_series(DATE '2025-11-01', DATE '2025-12-31', INTERVAL 1 DAY) AS t(d)\n),\ndaily AS (\n    SELECT order_date, COUNT(*) AS n\n    FROM {{ source('legacy', 'orders') }}\n    WHERE order_date >= DATE '2025-11-01'\n      AND order_date <= DATE '2025-12-31'\n    GROUP BY order_date\n)\nSELECT\n    c.cal_date,\n    CAST(COALESCE(d.n, 0) AS INTEGER) AS orders_placed\nFROM cal c\nLEFT JOIN daily d\n    ON d.order_date = c.cal_date",
+ "rows": 244,
+ "datasets": {
+  "base": 61,
+  "seed_101": 61,
+  "seed_202": 61,
+  "edge": 61
+ },
+ "model_sql": "WITH cal AS (\n    SELECT CAST(d AS DATE) AS cal_date\n    FROM generate_series(DATE '2025-11-01', DATE '2025-12-31', INTERVAL 1 DAY) AS t(d)\n)\nSELECT\n    c.cal_date,\n    CAST(COUNT(o.order_date) AS INTEGER) AS orders_placed\nFROM cal c\nLEFT JOIN {{ source('legacy', 'orders') }} o\n    ON o.order_date = c.cal_date\nGROUP BY c.cal_date",
  "history": [
   {
    "attempt": 1,
-   "sql": "WITH cal AS (\n    SELECT CAST(d AS DATE) AS cal_date\n    FROM generate_series(DATE '2025-11-01', DATE '2025-12-31', INTERVAL 1 DAY) AS t(d)\n),\ndaily AS (\n    SELECT order_date, COUNT(*) AS n\n    FROM {{ source('legacy', 'orders') }}\n    WHERE order_date >= DATE '2025-11-01'\n      AND order_date <= DATE '2025-12-31'\n    GROUP BY order_date\n)\nSELECT\n    c.cal_date,\n    CAST(COALESCE(d.n, 0) AS INTEGER) AS orders_placed\nFROM cal c\nLEFT JOIN daily d\n    ON d.order_date = c.cal_date",
+   "sql": "WITH cal AS (\n    SELECT CAST(d AS DATE) AS cal_date\n    FROM generate_series(DATE '2025-11-01', DATE '2025-12-31', INTERVAL 1 DAY) AS t(d)\n)\nSELECT\n    c.cal_date,\n    CAST(COUNT(o.order_date) AS INTEGER) AS orders_placed\nFROM cal c\nLEFT JOIN {{ source('legacy', 'orders') }} o\n    ON o.order_date = c.cal_date\nGROUP BY c.cal_date",
    "status": "match",
    "detail": {
-    "equivalent": true,
-    "legacy_rows": 61,
-    "new_rows": 61,
-    "issues": []
+    "datasets": {
+     "base": 61,
+     "seed_101": 61,
+     "seed_202": 61,
+     "edge": 61
+    }
    }
   }
  ],
- "explanation": "This procedure writes one row for every calendar day from November 1 to December 31, 2025, showing how many orders were placed on that day. Days with no orders still appear, with a count of zero. The loop-based version is replaced by a single set-based query that builds the date range and joins it to the daily order counts.",
+ "explanation": "This procedure builds a daily calendar for November and December 2025, with one row per day. For each day it counts the orders whose order_date falls on that day, and days with no orders get a count of zero. The result is a table of 61 rows, one per date, with the date and its order count.",
  "llm_calls": [
   {
    "model": "claude-haiku-5-5",
    "input_tokens": 1543,
-   "output_tokens": 1215,
+   "output_tokens": 964,
    "cache_write_tokens": 0,
    "cache_read_tokens": 0,
-   "cost_usd": 0.000762
+   "cost_usd": 0.000636
   }
  ],
- "cost_usd": 0.000762
+ "cost_usd": 0.000636
 }

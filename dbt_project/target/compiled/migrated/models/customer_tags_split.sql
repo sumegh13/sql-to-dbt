@@ -1,16 +1,11 @@
-WITH split_tags AS (
-    SELECT
+with split_tags as (
+    select
         c.customer_id,
-        unnest(
-            CASE
-                WHEN c.tags = '' THEN ['']
-                ELSE string_split(c.tags, ',')
-            END
-        ) AS raw_tag
-    FROM "warehouse"."legacy"."customers" c
-    WHERE c.tags IS NOT NULL
+        unnest(string_split(c.tags, ',')) as raw_tag
+    from "warehouse"."legacy"."customers" as c
+    where c.tags is not null
 )
-SELECT
+select
     customer_id,
-    LTRIM(RTRIM(raw_tag)) AS tag
-FROM split_tags
+    rtrim(ltrim(raw_tag)) as tag
+from split_tags

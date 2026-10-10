@@ -8,31 +8,39 @@
  ],
  "status": "verified",
  "attempts": 1,
- "rows": 8,
- "model_sql": "WITH a AS (\n    SELECT\n        customer_id,\n        amount\n    FROM {{ source('legacy', 'orders') }}\n    WHERE rtrim(lower(status)) NOT IN ('cancelled', 'returned')\n),\nb AS (\n    SELECT\n        customer_id,\n        COUNT(*) AS n,\n        SUM(amount) AS s\n    FROM a\n    GROUP BY customer_id\n),\nc AS (\n    SELECT\n        customer_id,\n        n,\n        s,\n        CAST(s AS DOUBLE) / n AS avg_amt\n    FROM b\n),\nd AS (\n    SELECT\n        customer_id,\n        n,\n        s,\n        avg_amt,\n        CASE\n            WHEN n >= 3 THEN 'frequent'\n            WHEN n = 2 THEN 'repeat'\n            ELSE 'one_off'\n        END AS segment\n    FROM c\n)\nSELECT\n    customer_id,\n    n,\n    s,\n    avg_amt,\n    segment\nFROM d",
+ "rows": 33,
+ "datasets": {
+  "base": 8,
+  "seed_101": 10,
+  "seed_202": 9,
+  "edge": 6
+ },
+ "model_sql": "WITH a AS (\n    SELECT customer_id, amount\n    FROM {{ source('legacy', 'orders') }}\n    WHERE rtrim(lower(status)) NOT IN ('cancelled', 'returned')\n),\nb AS (\n    SELECT customer_id, COUNT(*) AS n, SUM(amount) AS s\n    FROM a\n    GROUP BY customer_id\n),\nc AS (\n    SELECT customer_id, n, s, CAST(s AS DOUBLE) / n AS avg_amt\n    FROM b\n),\nd AS (\n    SELECT customer_id, n, s, avg_amt,\n           CASE WHEN n >= 3 THEN 'frequent'\n                WHEN n = 2 THEN 'repeat'\n                ELSE 'one_off' END AS segment\n    FROM c\n)\nSELECT customer_id, n, s, avg_amt, segment\nFROM d",
  "history": [
   {
    "attempt": 1,
-   "sql": "WITH a AS (\n    SELECT\n        customer_id,\n        amount\n    FROM {{ source('legacy', 'orders') }}\n    WHERE rtrim(lower(status)) NOT IN ('cancelled', 'returned')\n),\nb AS (\n    SELECT\n        customer_id,\n        COUNT(*) AS n,\n        SUM(amount) AS s\n    FROM a\n    GROUP BY customer_id\n),\nc AS (\n    SELECT\n        customer_id,\n        n,\n        s,\n        CAST(s AS DOUBLE) / n AS avg_amt\n    FROM b\n),\nd AS (\n    SELECT\n        customer_id,\n        n,\n        s,\n        avg_amt,\n        CASE\n            WHEN n >= 3 THEN 'frequent'\n            WHEN n = 2 THEN 'repeat'\n            ELSE 'one_off'\n        END AS segment\n    FROM c\n)\nSELECT\n    customer_id,\n    n,\n    s,\n    avg_amt,\n    segment\nFROM d",
+   "sql": "WITH a AS (\n    SELECT customer_id, amount\n    FROM {{ source('legacy', 'orders') }}\n    WHERE rtrim(lower(status)) NOT IN ('cancelled', 'returned')\n),\nb AS (\n    SELECT customer_id, COUNT(*) AS n, SUM(amount) AS s\n    FROM a\n    GROUP BY customer_id\n),\nc AS (\n    SELECT customer_id, n, s, CAST(s AS DOUBLE) / n AS avg_amt\n    FROM b\n),\nd AS (\n    SELECT customer_id, n, s, avg_amt,\n           CASE WHEN n >= 3 THEN 'frequent'\n                WHEN n = 2 THEN 'repeat'\n                ELSE 'one_off' END AS segment\n    FROM c\n)\nSELECT customer_id, n, s, avg_amt, segment\nFROM d",
    "status": "match",
    "detail": {
-    "equivalent": true,
-    "legacy_rows": 8,
-    "new_rows": 8,
-    "issues": []
+    "datasets": {
+     "base": 8,
+     "seed_101": 10,
+     "seed_202": 9,
+     "edge": 6
+    }
    }
   }
  ],
- "explanation": "This procedure builds a per-customer summary from orders, excluding cancelled and returned orders. For each customer it counts the remaining orders, sums their amounts, and computes the average order value. It then labels each customer as 'frequent' (3 or more orders), 'repeat' (exactly 2), or 'one_off' (1).",
+ "explanation": "This procedure groups each customer's non-cancelled and non-returned orders and counts them and totals their amounts. It then calculates the average order value and labels each customer as \"frequent\" (3 or more orders), \"repeat\" (exactly 2), or \"one_off\" (1). The result is saved as a customer segment table.",
  "llm_calls": [
   {
    "model": "claude-haiku-5-5",
    "input_tokens": 1644,
-   "output_tokens": 1728,
+   "output_tokens": 1755,
    "cache_write_tokens": 0,
    "cache_read_tokens": 0,
-   "cost_usd": 0.001028
+   "cost_usd": 0.001042
   }
  ],
- "cost_usd": 0.001028
+ "cost_usd": 0.001042
 }

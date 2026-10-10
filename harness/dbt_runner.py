@@ -36,10 +36,19 @@ def check_model_sql(sql: str) -> str | None:
     return f"forbidden construct in model: {m.group(0)!r}" if m else None
 
 
-def load_sources(schema, sources):
-    DB.parent.mkdir(exist_ok=True)
-    DB.unlink(missing_ok=True)
-    con = duckdb.connect(str(DB))
+SANDBOX = {"enable_external_access": False, "autoload_known_extensions": False, "autoinstall_known_extensions": False}
+
+
+def db_path(variant: str) -> Path:
+    """dbt runs against the base DB; other variants live in same-named files so compiled SQL resolves."""
+    return DB if variant == "base" else ROOT / "target" / "variants" / variant / "warehouse.duckdb"
+
+
+def load_sources(schema, sources, variant="base"):
+    path = db_path(variant)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.unlink(missing_ok=True)
+    con = duckdb.connect(str(path))
     try:
         con.execute("create schema legacy")
         for t, (cols, rows) in sources.items():
@@ -86,5 +95,18 @@ def run_model(model_name, model_sql):
     try:
         cur = con.execute(f"select * from main.{model_name}")
         return ([d[0] for d in cur.description], cur.fetchall()), None
+    finally:
+        con.close()
+
+
+def run_compiled(model_name, variant):
+    """Execute the model dbt compiled in the last run_model() against another dataset, sandboxed."""
+    sql = (ROOT / "target" / "compiled" / "migrated" / "models" / f"{model_name}.sql").read_text()
+    con = duckdb.connect(str(db_path(variant)), read_only=True, config=SANDBOX)
+    try:
+        cur = con.execute(sql)
+        return ([d[0] for d in cur.description], cur.fetchall()), None
+    except duckdb.Error as e:
+        return None, f"{type(e).__name__}: {e}"[:2000]
     finally:
         con.close()

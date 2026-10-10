@@ -8,31 +8,39 @@
  ],
  "status": "verified",
  "attempts": 1,
- "rows": 34,
- "model_sql": "WITH ordered AS (\n    SELECT\n        customer_id,\n        order_id,\n        order_date,\n        amount,\n        SUM(amount) OVER w AS s,\n        COUNT(*) OVER w AS n_all,\n        COUNT(amount) OVER w AS n_nonnull\n    FROM {{ source('legacy', 'orders') }}\n    WINDOW w AS (\n        PARTITION BY customer_id\n        ORDER BY order_date NULLS FIRST, order_id NULLS FIRST\n        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW\n    )\n)\nSELECT\n    customer_id,\n    order_id,\n    order_date,\n    amount,\n    CAST(\n        CASE\n            WHEN customer_id IS NULL THEN amount\n            WHEN n_all = n_nonnull THEN s\n        END\n        AS DECIMAL(18,2)\n    ) AS running_total\nFROM ordered",
+ "rows": 117,
+ "datasets": {
+  "base": 34,
+  "seed_101": 34,
+  "seed_202": 34,
+  "edge": 15
+ },
+ "model_sql": "with ordered as (\n    select\n        customer_id,\n        order_id,\n        order_date,\n        amount,\n        sum(amount) over (\n            partition by customer_id\n            order by order_date asc nulls first, order_id asc nulls first\n            rows between unbounded preceding and current row\n        ) as running_sum,\n        sum(case when amount is null then 1 else 0 end) over (\n            partition by customer_id\n            order by order_date asc nulls first, order_id asc nulls first\n            rows between unbounded preceding and current row\n        ) as null_amounts_seen\n    from {{ source('legacy', 'orders') }}\n)\nselect\n    customer_id,\n    order_id,\n    order_date,\n    amount,\n    cast(\n        case\n            when customer_id is null then amount\n            when null_amounts_seen > 0 then null\n            else running_sum\n        end\n        as decimal(18,2)\n    ) as running_total\nfrom ordered",
  "history": [
   {
    "attempt": 1,
-   "sql": "WITH ordered AS (\n    SELECT\n        customer_id,\n        order_id,\n        order_date,\n        amount,\n        SUM(amount) OVER w AS s,\n        COUNT(*) OVER w AS n_all,\n        COUNT(amount) OVER w AS n_nonnull\n    FROM {{ source('legacy', 'orders') }}\n    WINDOW w AS (\n        PARTITION BY customer_id\n        ORDER BY order_date NULLS FIRST, order_id NULLS FIRST\n        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW\n    )\n)\nSELECT\n    customer_id,\n    order_id,\n    order_date,\n    amount,\n    CAST(\n        CASE\n            WHEN customer_id IS NULL THEN amount\n            WHEN n_all = n_nonnull THEN s\n        END\n        AS DECIMAL(18,2)\n    ) AS running_total\nFROM ordered",
+   "sql": "with ordered as (\n    select\n        customer_id,\n        order_id,\n        order_date,\n        amount,\n        sum(amount) over (\n            partition by customer_id\n            order by order_date asc nulls first, order_id asc nulls first\n            rows between unbounded preceding and current row\n        ) as running_sum,\n        sum(case when amount is null then 1 else 0 end) over (\n            partition by customer_id\n            order by order_date asc nulls first, order_id asc nulls first\n            rows between unbounded preceding and current row\n        ) as null_amounts_seen\n    from {{ source('legacy', 'orders') }}\n)\nselect\n    customer_id,\n    order_id,\n    order_date,\n    amount,\n    cast(\n        case\n            when customer_id is null then amount\n            when null_amounts_seen > 0 then null\n            else running_sum\n        end\n        as decimal(18,2)\n    ) as running_total\nfrom ordered",
    "status": "match",
    "detail": {
-    "equivalent": true,
-    "legacy_rows": 34,
-    "new_rows": 34,
-    "issues": []
+    "datasets": {
+     "base": 34,
+     "seed_101": 34,
+     "seed_202": 34,
+     "edge": 15
+    }
    }
   }
  ],
- "explanation": "This procedure builds a per-customer running total of order amounts. It walks through orders in customer, date, and order-ID sequence, restarting the total for each new customer. Each order row shows its own amount alongside the cumulative amount spent so far by that customer. The model reproduces the cursor's edge cases: NULL customers sort first and each stand alone, and a NULL amount makes that customer's running total NULL from that point on.",
+ "explanation": "This procedure builds a running-total report of orders for each customer, listing every order in date order with the cumulative amount spent so far. It walks the orders one at a time with a cursor and resets the total whenever the customer changes. The conversion uses a window sum partitioned by customer and ordered by date and order id. It also reproduces a quirk of the original: once an order amount is NULL, the running total stays NULL for the rest of that customer's orders.",
  "llm_calls": [
   {
    "model": "claude-haiku-5-5",
    "input_tokens": 1795,
-   "output_tokens": 2904,
+   "output_tokens": 2234,
    "cache_write_tokens": 0,
    "cache_read_tokens": 0,
-   "cost_usd": 0.001631
+   "cost_usd": 0.001296
   }
  ],
- "cost_usd": 0.001631
+ "cost_usd": 0.001296
 }

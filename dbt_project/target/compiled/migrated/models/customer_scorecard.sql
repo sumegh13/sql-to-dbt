@@ -1,8 +1,8 @@
 SELECT
     c.customer_id,
-    SUM(CASE WHEN rtrim(lower(o.status)) = 'shipped' THEN o.amount ELSE CAST(0 AS DECIMAL(18,2)) END) AS shipped_amt,
-    SUM(CASE WHEN rtrim(lower(o.status)) = 'pending' THEN o.amount ELSE CAST(0 AS DECIMAL(18,2)) END) AS pending_amt,
-    SUM(CASE WHEN rtrim(lower(o.status)) = 'cancelled' THEN o.amount ELSE CAST(0 AS DECIMAL(18,2)) END) AS cancelled_amt,
+    SUM(CASE WHEN lower(rtrim(o.status)) = 'shipped' THEN o.amount ELSE 0 END) AS shipped_amt,
+    SUM(CASE WHEN lower(rtrim(o.status)) = 'pending' THEN o.amount ELSE 0 END) AS pending_amt,
+    SUM(CASE WHEN lower(rtrim(o.status)) = 'cancelled' THEN o.amount ELSE 0 END) AS cancelled_amt,
     MAX(o.order_date) AS last_order,
     COUNT(o.order_id) AS orders
 FROM "warehouse"."legacy"."customers" c

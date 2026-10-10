@@ -10,6 +10,7 @@ CORPUS = Path(__file__).resolve().parent.parent / "corpus"
 CONN = dict(server=os.environ.get("MSSQL_HOST", "localhost"), user=os.environ.get("MSSQL_USER", "sa"),
             password=os.environ.get("MSSQL_SA_PASSWORD", "Legacy_Pass123"), autocommit=True)
 SOURCE_TABLES = json.loads((CORPUS / "tables.json").read_text())
+VARIANTS = json.loads((CORPUS / "variants.json").read_text())
 
 
 def _batches(sql: str):
@@ -36,12 +37,12 @@ def _schema(cur):
     return out
 
 
-def run_proc(proc_sql: str, proc_name: str, output_table: str):
+def run_proc(proc_sql: str, proc_name: str, output_table: str, variant: str = "base"):
     """Reset fixture, create + run proc. Returns (schema, sources_before, output).
     Sources are dumped BEFORE the proc runs so procs that mutate them can't skew the baseline."""
     with closing(pymssql.connect(**CONN)) as conn:
         cur = conn.cursor()
-        for b in _batches((CORPUS / "fixture.sql").read_text()):
+        for b in _batches((CORPUS / "fixtures" / f"{variant}.sql").read_text()):
             cur.execute(b)
         schema = _schema(cur)
         schema = {t: schema[t.lower()] for t in SOURCE_TABLES}

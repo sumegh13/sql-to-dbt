@@ -1,0 +1,32 @@
+IF OBJECT_ID('dbo.customers') IS NOT NULL DROP TABLE dbo.customers;
+IF OBJECT_ID('dbo.products') IS NOT NULL DROP TABLE dbo.products;
+IF OBJECT_ID('dbo.orders') IS NOT NULL DROP TABLE dbo.orders;
+IF OBJECT_ID('dbo.order_items') IS NOT NULL DROP TABLE dbo.order_items;
+IF OBJECT_ID('dbo.employees') IS NOT NULL DROP TABLE dbo.employees;
+IF OBJECT_ID('dbo.payments') IS NOT NULL DROP TABLE dbo.payments;
+IF OBJECT_ID('dbo.inventory') IS NOT NULL DROP TABLE dbo.inventory;
+IF OBJECT_ID('dbo.price_history') IS NOT NULL DROP TABLE dbo.price_history;
+IF OBJECT_ID('dbo.customer_staging') IS NOT NULL DROP TABLE dbo.customer_staging;
+IF OBJECT_ID('dbo.report_config') IS NOT NULL DROP TABLE dbo.report_config;
+GO
+CREATE TABLE dbo.customers (customer_id INT, customer_name VARCHAR(100), region VARCHAR(10) NULL, signup_date DATE, email VARCHAR(100) NULL, is_active BIT, legacy_code VARCHAR(10) NULL, tags VARCHAR(100) NULL);
+CREATE TABLE dbo.products (product_id INT, product_name VARCHAR(50), category VARCHAR(20), unit_price DECIMAL(18,2));
+CREATE TABLE dbo.orders (order_id INT, customer_id INT, order_date DATE, amount DECIMAL(18,2), status VARCHAR(20));
+CREATE TABLE dbo.order_items (item_id INT, order_id INT, product_id INT, qty INT, unit_price DECIMAL(18,2));
+CREATE TABLE dbo.employees (employee_id INT, emp_name VARCHAR(50), manager_id INT NULL, department VARCHAR(20), salary DECIMAL(18,2), hire_date DATE);
+CREATE TABLE dbo.payments (payment_id INT, order_id INT, paid_amount DECIMAL(18,2), paid_date DATE, method VARCHAR(10));
+CREATE TABLE dbo.inventory (product_id INT, warehouse VARCHAR(5), qty_on_hand INT);
+CREATE TABLE dbo.price_history (product_id INT, effective_date DATE, price DECIMAL(18,2));
+CREATE TABLE dbo.customer_staging (customer_id INT, customer_name VARCHAR(100), region VARCHAR(10) NULL, email VARCHAR(100) NULL);
+CREATE TABLE dbo.report_config (table_name VARCHAR(50), filter_col VARCHAR(50));
+GO
+INSERT INTO dbo.customers VALUES (1,'Edge Boundary','East','2024-02-29','edge@acme.com',1,'','vip,'),(2,'Trailing   ','West','2024-03-01','noatsign',1,' 12','a,,b'),(3,'  Leading',NULL,'2024-03-02',NULL,0,'1.5',NULL),(4,'Only Cancelled','Southwest_','2024-03-03','oc@example.org',1,'-7','b2b'),(5,'No Orders',NULL,'2024-03-04','no@example.org',1,'2147483648',' eu '),(6,'Refunder','North','2024-03-05','ref@globex.io',0,'0','vip, us'),(7,'Ties','South','2024-03-06','ties@globex.io',1,NULL,'');
+INSERT INTO dbo.products VALUES (1,'Alpha','Hardware',500),(2,'Beta','Software',0),(3,'Gamma','Services',0.01),(4,'Delta','Hardware',333.33),(5,'Unsold','Software',10);
+INSERT INTO dbo.orders VALUES (1,1,'2025-12-31',500,'shipped'),(2,1,'2026-01-01',500,'Shipped '),(3,2,'2025-11-30',NULL,'shipped'),(4,2,'2025-12-01',100,NULL),(5,2,'2025-12-02',0,'pending'),(6,4,'2025-10-15',250,'CANCELLED'),(7,4,'2025-09-01',250,'cancelled'),(8,6,'2025-11-05',-50,'returned'),(9,6,'2025-11-05',75.5,'shipped'),(10,7,'2025-12-10',99.99,'shipped'),(11,7,'2025-12-11',99.99,'pending'),(12,7,'2025-12-12',99.99,'shipped'),(13,99,'2025-12-20',42,'shipped'),(14,3,'2024-02-29',0.01,'shipped'),(15,3,'2025-01-31',1999.99,'shipped');
+INSERT INTO dbo.order_items VALUES (1,1,1,1,500),(2,2,1,1,500),(3,3,2,3,0),(4,4,3,0,0.01),(5,4,4,1,333.33),(6,5,2,1,0),(7,6,4,2,125),(8,7,4,1,250),(9,8,3,5,-10),(10,9,1,1,75.5),(11,10,1,4,25),(12,10,1,6,25),(13,10,2,1,0),(14,11,3,9,11.11),(15,12,4,1,99.99),(16,13,2,2,21),(17,14,3,1,0.01),(18,15,1,4,500);
+INSERT INTO dbo.employees VALUES (1,'Root',NULL,'Exec',120000,'2015-01-01'),(2,'Root2',NULL,'Ops',70000,'2016-01-01'),(3,'Tie A',1,'Eng',70000,'2017-01-01'),(4,'Tie B',1,'Eng',70000,'2017-01-02'),(5,'Deep',3,'Eng',69999.99,'2018-01-01'),(6,'Deeper',5,'Eng',1,'2019-01-01');
+INSERT INTO dbo.payments VALUES (1,1,500,'2026-01-02','card'),(2,2,300,'2026-01-03','card'),(3,2,300,'2026-01-03','wire'),(4,3,NULL,'2025-12-01','card'),(5,3,10,'2025-12-02','card'),(6,9,0,'2025-11-06','card'),(7,12,50,'2025-12-13','wire'),(8,77,5,'2025-12-01','card');
+INSERT INTO dbo.inventory VALUES (1,'A',20),(1,'B',0),(2,'B',19),(3,'A',-5),(4,'A',10),(4,'B',9);
+INSERT INTO dbo.price_history VALUES (1,'2024-01-01',450),(1,'2025-12-31',500),(1,'2026-06-01',550),(2,'2025-01-01',0),(4,'2026-02-01',333.33);
+INSERT INTO dbo.customer_staging VALUES (1,'Edge Renamed',NULL,NULL),(6,'Refunder','North','new@globex.io'),(8,'Brand New',NULL,NULL);
+INSERT INTO dbo.report_config VALUES ('customers','email');

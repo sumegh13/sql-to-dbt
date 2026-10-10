@@ -1,21 +1,19 @@
 
   
   create view "warehouse"."main"."customer_email_domains__dbt_tmp" as (
-    WITH src AS (
+    WITH parsed AS (
     SELECT
-        email,
-        strpos(email, '@') AS at_pos
+        substr(
+            email,
+            instr(email, '@') + 1,
+            length(rtrim(email))
+        ) AS domain
     FROM "warehouse"."legacy"."customers"
     WHERE email IS NOT NULL
-),
-parts AS (
-    SELECT
-        SUBSTRING(email, at_pos + 1, length(rtrim(email))) AS domain
-    FROM src
 )
 SELECT
     min(domain) AS domain,
     count(*) AS customers
-FROM parts
+FROM parsed
 GROUP BY rtrim(lower(domain))
   );

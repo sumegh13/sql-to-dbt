@@ -39,14 +39,14 @@ const diffs=['easy','medium','hard','human'];let f='all';
 const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 const pct=n=>(100*n/R.length)+'%';
 const CAT={dynamic_sql:'Dynamic SQL',nondeterministic:'Nondeterministic',mutates_source:'Mutates source tables',external_side_effect:'External side effect',unresolved_diff:'Unresolved diff',no_translation:'No translation'};
-function row(r){const v=r.status=='verified';return `<details><summary><span class="pill ${v?'v':'h'}">${v?'verified':CAT[r.reason_category]||'needs human'}</span><b>${esc(r.name)}</b><span class=sp></span>${r.tags.map(t=>`<span class=tag>${esc(t)}</span>`).join('')}<span class=mut>${esc(r.difficulty)}${v?' · '+r.rows+' rows · '+r.attempts+' attempt'+(r.attempts>1?'s':''):''}</span></summary><div class=body>
+function row(r){const v=r.status=='verified';return `<details><summary><span class="pill ${v?'v':'h'}">${v?'verified':CAT[r.reason_category]||'needs human'}</span><b>${esc(r.name)}</b><span class=sp></span>${r.tags.map(t=>`<span class=tag>${esc(t)}</span>`).join('')}<span class=mut>${esc(r.difficulty)}${v?' · '+Object.keys(r.datasets||{}).length+' datasets · '+r.rows+' rows · '+r.attempts+' attempt'+(r.attempts>1?'s':''):''}</span></summary><div class=body>
 ${r.explanation?`<div style="grid-column:1/-1"><h4>What it does</h4><p style="margin:4px 0">${esc(r.explanation)}</p></div>`:''}
 ${v?'':`<div style="grid-column:1/-1"><b>Why:</b> ${esc(r.reason)}</div>`}
 ${r.history&&r.history.length>1?`<div style="grid-column:1/-1"><h4>Attempt history</h4>${r.history.map(h=>`<p class=mut style="margin:2px 0">#${h.attempt} ${esc(h.status)}${h.status=='match'?'':': '+esc(typeof h.detail=='string'?h.detail.slice(0,240):JSON.stringify(h.detail.issues).slice(0,240))}</p>`).join('')}</div>`:''}
 <div><h4>Legacy T-SQL</h4><pre>${esc(r.legacy_sql)}</pre></div><div><h4>dbt model</h4><pre>${r.model_sql?esc(r.model_sql):'(none: not auto-migratable)'}</pre></div></div></details>`}
 function draw(){const list=R.filter(r=>f=='all'||(f=='verified'?r.status=='verified':f=='human'?r.status!='verified':r.difficulty==f));
 document.getElementById('app').innerHTML=`<h1><b>${ok.length} of ${R.length}</b> procedures migrated, verified equivalent</h1>
-<p class=sub>${hu.length} need a human. Each dbt model ran on the same data as the original T-SQL proc and matched row by row.</p>
+<p class=sub>${hu.length} need a human. Each dbt model ran on the same 4 datasets as the original T-SQL proc (base, two random seeds, and an edge-case set) and matched row by row on every one.</p>
 <div class=bar><i style="width:${pct(ok.length)};background:var(--ok)"></i><i style="width:${pct(hu.length)};background:var(--warn)"></i></div>
 <div class=legend><span>Verified ${ok.length}</span><span>Needs human ${hu.length}</span></div>
 <div class=stats><div class=stat><b>${ok.reduce((a,r)=>a+r.rows,0)}</b><span>rows compared</span></div><div class=stat><b>${ok.filter(r=>r.attempts==1).length}</b><span>passed first try</span></div><div class=stat><b>${ok.filter(r=>r.attempts>1).length}</b><span>fixed by retry</span></div><div class=stat><b>$${R.reduce((a,r)=>a+(r.cost_usd||0),0).toFixed(3)}</b><span>LLM cost, full run</span></div></div>

@@ -1,7 +1,7 @@
 
   
   create view "warehouse"."main"."payment_balance_cursor__dbt_tmp" as (
-    with joined as (
+    with src as (
     select
         p.payment_id,
         p.order_id,
@@ -18,30 +18,36 @@ running as (
         order_id,
         paid_amount,
         amount,
-        -- T-SQL cursor: once a NULL payment enters the running total, it stays NULL for the rest of the order
+        sum(paid_amount) over (
+            partition by order_id
+            order by paid_date nulls first, payment_id nulls first
+            rows between unbounded preceding and current row
+        ) as raw_running_sum,
+        sum(case when paid_amount is null then 1 else 0 end) over (
+            partition by order_id
+            order by paid_date nulls first, payment_id nulls first
+            rows between unbounded preceding and current row
+        ) as null_paids_seen
+    from src
+),
+final as (
+    select
+        payment_id,
+        order_id,
+        cast(paid_amount as decimal(18,2)) as paid_amount,
         case
-            when count(*) over (
-                    partition by order_id
-                    order by paid_date nulls first, payment_id
-                    rows between unbounded preceding and current row)
-                 = count(paid_amount) over (
-                    partition by order_id
-                    order by paid_date nulls first, payment_id
-                    rows between unbounded preceding and current row)
-            then cast(sum(paid_amount) over (
-                    partition by order_id
-                    order by paid_date nulls first, payment_id
-                    rows between unbounded preceding and current row) as decimal(18,2))
-            else cast(null as decimal(18,2))
-        end as cumulative_paid
-    from joined
+            when null_paids_seen > 0 then cast(null as decimal(18,2))
+            else cast(raw_running_sum as decimal(18,2))
+        end as cumulative_paid,
+        amount
+    from running
 )
 select
     payment_id,
     order_id,
-    cast(paid_amount as decimal(18,2)) as paid_amount,
+    paid_amount,
     cumulative_paid,
     cast(amount - cumulative_paid as decimal(18,2)) as balance_after,
-    cast(case when cumulative_paid > amount then 1 else 0 end as integer) as overpaid
-from running
+    case when cumulative_paid > amount then 1 else 0 end as overpaid
+from final
   );

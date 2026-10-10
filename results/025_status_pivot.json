@@ -8,31 +8,39 @@
  ],
  "status": "verified",
  "attempts": 1,
- "rows": 10,
- "model_sql": "WITH src AS (\n    SELECT customer_id, status, order_id\n    FROM {{ source('legacy', 'orders') }}\n)\nSELECT\n    customer_id,\n    COUNT(CASE WHEN RTRIM(LOWER(status)) = 'shipped' THEN order_id END) AS shipped,\n    COUNT(CASE WHEN RTRIM(LOWER(status)) = 'pending' THEN order_id END) AS pending,\n    COUNT(CASE WHEN RTRIM(LOWER(status)) = 'cancelled' THEN order_id END) AS cancelled\nFROM src\nGROUP BY customer_id",
+ "rows": 36,
+ "datasets": {
+  "base": 10,
+  "seed_101": 10,
+  "seed_202": 9,
+  "edge": 7
+ },
+ "model_sql": "WITH src AS (\n    SELECT\n        customer_id,\n        rtrim(lower(status)) AS status_norm,\n        order_id\n    FROM {{ source('legacy', 'orders') }}\n)\nSELECT\n    customer_id,\n    CAST(COUNT(CASE WHEN status_norm = 'shipped' THEN order_id END) AS INTEGER) AS shipped,\n    CAST(COUNT(CASE WHEN status_norm = 'pending' THEN order_id END) AS INTEGER) AS pending,\n    CAST(COUNT(CASE WHEN status_norm = 'cancelled' THEN order_id END) AS INTEGER) AS cancelled\nFROM src\nGROUP BY customer_id",
  "history": [
   {
    "attempt": 1,
-   "sql": "WITH src AS (\n    SELECT customer_id, status, order_id\n    FROM {{ source('legacy', 'orders') }}\n)\nSELECT\n    customer_id,\n    COUNT(CASE WHEN RTRIM(LOWER(status)) = 'shipped' THEN order_id END) AS shipped,\n    COUNT(CASE WHEN RTRIM(LOWER(status)) = 'pending' THEN order_id END) AS pending,\n    COUNT(CASE WHEN RTRIM(LOWER(status)) = 'cancelled' THEN order_id END) AS cancelled\nFROM src\nGROUP BY customer_id",
+   "sql": "WITH src AS (\n    SELECT\n        customer_id,\n        rtrim(lower(status)) AS status_norm,\n        order_id\n    FROM {{ source('legacy', 'orders') }}\n)\nSELECT\n    customer_id,\n    CAST(COUNT(CASE WHEN status_norm = 'shipped' THEN order_id END) AS INTEGER) AS shipped,\n    CAST(COUNT(CASE WHEN status_norm = 'pending' THEN order_id END) AS INTEGER) AS pending,\n    CAST(COUNT(CASE WHEN status_norm = 'cancelled' THEN order_id END) AS INTEGER) AS cancelled\nFROM src\nGROUP BY customer_id",
    "status": "match",
    "detail": {
-    "equivalent": true,
-    "legacy_rows": 10,
-    "new_rows": 10,
-    "issues": []
+    "datasets": {
+     "base": 10,
+     "seed_101": 10,
+     "seed_202": 9,
+     "edge": 7
+    }
    }
   }
  ],
- "explanation": "This procedure counts each customer's orders by status, producing one row per customer with separate counts for shipped, pending and cancelled orders. Customers whose orders have no matching status still appear, with zeros in those columns. The rewrite matches status values case-insensitively and ignores trailing spaces, as SQL Server does by default.",
+ "explanation": "This procedure builds a per-customer summary of orders by status. For each customer it counts how many orders are shipped, pending, and cancelled, with zero where a customer has none of a given status. The result is saved as a table that the business can use to see each customer's order mix at a glance.",
  "llm_calls": [
   {
    "model": "claude-haiku-5-5",
    "input_tokens": 1522,
-   "output_tokens": 1366,
+   "output_tokens": 1115,
    "cache_write_tokens": 0,
    "cache_read_tokens": 0,
-   "cost_usd": 0.000835
+   "cost_usd": 0.00071
   }
  ],
- "cost_usd": 0.000835
+ "cost_usd": 0.00071
 }

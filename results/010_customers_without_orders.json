@@ -7,31 +7,39 @@
  ],
  "status": "verified",
  "attempts": 1,
- "rows": 2,
- "model_sql": "SELECT\n    c.customer_id,\n    c.customer_name\nFROM {{ source('legacy', 'customers') }} c\nWHERE NOT EXISTS (\n    SELECT 1\n    FROM {{ source('legacy', 'orders') }} o\n    WHERE o.customer_id = c.customer_id\n)",
+ "rows": 8,
+ "datasets": {
+  "base": 2,
+  "seed_101": 2,
+  "seed_202": 3,
+  "edge": 1
+ },
+ "model_sql": "SELECT\n    c.customer_id,\n    c.customer_name\nFROM {{ source('legacy', 'customers') }} AS c\nWHERE NOT EXISTS (\n    SELECT 1\n    FROM {{ source('legacy', 'orders') }} AS o\n    WHERE o.customer_id = c.customer_id\n)",
  "history": [
   {
    "attempt": 1,
-   "sql": "SELECT\n    c.customer_id,\n    c.customer_name\nFROM {{ source('legacy', 'customers') }} c\nWHERE NOT EXISTS (\n    SELECT 1\n    FROM {{ source('legacy', 'orders') }} o\n    WHERE o.customer_id = c.customer_id\n)",
+   "sql": "SELECT\n    c.customer_id,\n    c.customer_name\nFROM {{ source('legacy', 'customers') }} AS c\nWHERE NOT EXISTS (\n    SELECT 1\n    FROM {{ source('legacy', 'orders') }} AS o\n    WHERE o.customer_id = c.customer_id\n)",
    "status": "match",
    "detail": {
-    "equivalent": true,
-    "legacy_rows": 2,
-    "new_rows": 2,
-    "issues": []
+    "datasets": {
+     "base": 2,
+     "seed_101": 2,
+     "seed_202": 3,
+     "edge": 1
+    }
    }
   }
  ],
- "explanation": "This procedure builds a list of customers who have never placed an order. It drops and recreates the output table, then selects each customer's ID and name where no order exists for that customer. The model returns the same customers, with no changes to the rows or columns.",
+ "explanation": "This procedure builds a list of customers who have never placed an order. It takes each customer's ID and name from the customers table and keeps only those with no matching row in the orders table. The result is rebuilt from scratch on each run.",
  "llm_calls": [
   {
    "model": "claude-haiku-5-5",
    "input_tokens": 1466,
-   "output_tokens": 377,
+   "output_tokens": 369,
    "cache_write_tokens": 0,
    "cache_read_tokens": 0,
-   "cost_usd": 0.000335
+   "cost_usd": 0.000331
   }
  ],
- "cost_usd": 0.000335
+ "cost_usd": 0.000331
 }

@@ -7,46 +7,40 @@
   "group-by"
  ],
  "status": "verified",
- "attempts": 2,
- "rows": 5,
- "model_sql": "WITH base AS (\n    SELECT\n        COALESCE(region, 'Unknown') AS region_val\n    FROM {{ source('legacy', 'customers') }}\n    WHERE is_active = 1\n)\nSELECT\n    MIN(region_val) AS region,\n    COUNT(*) AS customer_count\nFROM base\nGROUP BY LOWER(RTRIM(region_val))",
+ "attempts": 1,
+ "rows": 20,
+ "datasets": {
+  "base": 5,
+  "seed_101": 5,
+  "seed_202": 5,
+  "edge": 5
+ },
+ "model_sql": "WITH active AS (\n    SELECT coalesce(region, 'Unknown') AS region_val\n    FROM {{ source('legacy', 'customers') }}\n    WHERE is_active = 1\n)\nSELECT\n    MIN(region_val) AS region,\n    COUNT(*) AS customer_count\nFROM active\nGROUP BY upper(rtrim(region_val))",
  "history": [
   {
    "attempt": 1,
-   "sql": "WITH base AS (\n    SELECT\n        ISNULL(region, 'Unknown') AS region_val\n    FROM {{ source('legacy', 'customers') }}\n    WHERE is_active = 1\n)\nSELECT\n    MIN(region_val) AS region,\n    COUNT(*) AS customer_count\nFROM base\nGROUP BY LOWER(RTRIM(region_val))",
-   "status": "dbt_error",
-   "detail": "1 of 1 ERROR creating sql view model main.active_customers_by_region ........... [ERROR in 0.03s]\n[ERROR]: in model active_customers_by_region (models/active_customers_by_region.sql)\nRuntime Error in model active_customers_by_region (models/active_customers_by_region.sql)\n  Catalog Error: Scalar Function with name isnull does not exist!\n  Did you mean \"isnan\"?\n  LINE 7:         ISNULL(region, 'Unknown') AS region_val\n                  ^\ncompiled code at target/compiled/migrated/models/active_customers_by_region.sql"
-  },
-  {
-   "attempt": 2,
-   "sql": "WITH base AS (\n    SELECT\n        COALESCE(region, 'Unknown') AS region_val\n    FROM {{ source('legacy', 'customers') }}\n    WHERE is_active = 1\n)\nSELECT\n    MIN(region_val) AS region,\n    COUNT(*) AS customer_count\nFROM base\nGROUP BY LOWER(RTRIM(region_val))",
+   "sql": "WITH active AS (\n    SELECT coalesce(region, 'Unknown') AS region_val\n    FROM {{ source('legacy', 'customers') }}\n    WHERE is_active = 1\n)\nSELECT\n    MIN(region_val) AS region,\n    COUNT(*) AS customer_count\nFROM active\nGROUP BY upper(rtrim(region_val))",
    "status": "match",
    "detail": {
-    "equivalent": true,
-    "legacy_rows": 5,
-    "new_rows": 5,
-    "issues": []
+    "datasets": {
+     "base": 5,
+     "seed_101": 5,
+     "seed_202": 5,
+     "edge": 5
+    }
    }
   }
  ],
- "explanation": "This procedure counts active customers in each region, using \"Unknown\" for customers with no region recorded. It replaces any previous version of the output table with the fresh counts each time it runs. The model below matches SQL Server's default case-insensitive, trailing-space-insensitive grouping, so regions that differ only in capitalization or trailing spaces are combined into one row.",
+ "explanation": "This procedure counts active customers in each region and saves the counts to a table. Customers with no region are grouped under \"Unknown\". The rebuilt model matches SQL Server's case-insensitive, trailing-space-insensitive grouping, so \"North\" and \"north\" count as one region.",
  "llm_calls": [
   {
    "model": "claude-haiku-5-5",
    "input_tokens": 1467,
-   "output_tokens": 1020,
+   "output_tokens": 1153,
    "cache_write_tokens": 0,
    "cache_read_tokens": 0,
-   "cost_usd": 0.000657
-  },
-  {
-   "model": "claude-haiku-5-5",
-   "input_tokens": 1917,
-   "output_tokens": 1100,
-   "cache_write_tokens": 0,
-   "cache_read_tokens": 0,
-   "cost_usd": 0.000742
+   "cost_usd": 0.000723
   }
  ],
- "cost_usd": 0.001399
+ "cost_usd": 0.000723
 }

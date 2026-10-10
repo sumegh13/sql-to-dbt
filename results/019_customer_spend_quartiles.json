@@ -8,31 +8,39 @@
  ],
  "status": "verified",
  "attempts": 1,
- "rows": 8,
- "model_sql": "WITH s AS (\n    SELECT\n        customer_id,\n        SUM(amount) AS spend\n    FROM {{ source('legacy', 'orders') }}\n    WHERE RTRIM(UPPER(status)) NOT IN ('CANCELLED', 'RETURNED')\n    GROUP BY customer_id\n)\nSELECT\n    customer_id,\n    spend,\n    NTILE(4) OVER (\n        ORDER BY spend DESC NULLS LAST, customer_id ASC NULLS FIRST\n    ) AS quartile\nFROM s",
+ "rows": 33,
+ "datasets": {
+  "base": 8,
+  "seed_101": 10,
+  "seed_202": 9,
+  "edge": 6
+ },
+ "model_sql": "WITH s AS (\n    SELECT\n        customer_id,\n        SUM(amount) AS spend\n    FROM {{ source('legacy', 'orders') }}\n    WHERE rtrim(lower(status)) NOT IN ('cancelled', 'returned')\n    GROUP BY customer_id\n)\nSELECT\n    customer_id,\n    spend,\n    NTILE(4) OVER (ORDER BY spend DESC NULLS LAST, customer_id ASC NULLS FIRST) AS quartile\nFROM s",
  "history": [
   {
    "attempt": 1,
-   "sql": "WITH s AS (\n    SELECT\n        customer_id,\n        SUM(amount) AS spend\n    FROM {{ source('legacy', 'orders') }}\n    WHERE RTRIM(UPPER(status)) NOT IN ('CANCELLED', 'RETURNED')\n    GROUP BY customer_id\n)\nSELECT\n    customer_id,\n    spend,\n    NTILE(4) OVER (\n        ORDER BY spend DESC NULLS LAST, customer_id ASC NULLS FIRST\n    ) AS quartile\nFROM s",
+   "sql": "WITH s AS (\n    SELECT\n        customer_id,\n        SUM(amount) AS spend\n    FROM {{ source('legacy', 'orders') }}\n    WHERE rtrim(lower(status)) NOT IN ('cancelled', 'returned')\n    GROUP BY customer_id\n)\nSELECT\n    customer_id,\n    spend,\n    NTILE(4) OVER (ORDER BY spend DESC NULLS LAST, customer_id ASC NULLS FIRST) AS quartile\nFROM s",
    "status": "match",
    "detail": {
-    "equivalent": true,
-    "legacy_rows": 8,
-    "new_rows": 8,
-    "issues": []
+    "datasets": {
+     "base": 8,
+     "seed_101": 10,
+     "seed_202": 9,
+     "edge": 6
+    }
    }
   }
  ],
- "explanation": "This procedure ranks customers by total spend and splits them into four equal-sized groups (quartiles), with quartile 1 holding the highest spenders. Orders with a status of cancelled or returned are left out of the totals. Ties in spend are broken by customer ID so the ranking is deterministic.",
+ "explanation": "This procedure totals each customer's order amounts, leaving out cancelled and returned orders. It then ranks customers from highest to lowest spend and splits them into four equal groups, with quartile 1 holding the top spenders. The result is saved as a fresh table, `customer_spend_quartiles`, with one row per customer.",
  "llm_calls": [
   {
    "model": "claude-haiku-5-5",
    "input_tokens": 1523,
-   "output_tokens": 1233,
+   "output_tokens": 1068,
    "cache_write_tokens": 0,
    "cache_read_tokens": 0,
-   "cost_usd": 0.000769
+   "cost_usd": 0.000686
   }
  ],
- "cost_usd": 0.000769
+ "cost_usd": 0.000686
 }

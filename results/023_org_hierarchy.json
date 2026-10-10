@@ -7,31 +7,39 @@
  ],
  "status": "verified",
  "attempts": 1,
- "rows": 10,
- "model_sql": "WITH RECURSIVE h AS (\n  SELECT employee_id, emp_name, manager_id, 0 AS lvl, CAST(emp_name AS VARCHAR) AS path\n  FROM {{ source('legacy', 'employees') }}\n  WHERE manager_id IS NULL\n  UNION ALL\n  SELECT e.employee_id, e.emp_name, e.manager_id, h.lvl + 1,\n         LEFT(h.path || ' > ' || e.emp_name, 500)\n  FROM {{ source('legacy', 'employees') }} e\n  JOIN h ON e.manager_id = h.employee_id\n)\nSELECT employee_id, emp_name, lvl, path\nFROM h",
+ "rows": 36,
+ "datasets": {
+  "base": 10,
+  "seed_101": 10,
+  "seed_202": 10,
+  "edge": 6
+ },
+ "model_sql": "with recursive h as (\n  select\n    employee_id,\n    emp_name,\n    manager_id,\n    0 as lvl,\n    cast(emp_name as varchar) as path\n  from {{ source('legacy', 'employees') }}\n  where manager_id is null\n\n  union all\n\n  select\n    e.employee_id,\n    e.emp_name,\n    e.manager_id,\n    h.lvl + 1 as lvl,\n    left(h.path || ' > ' || e.emp_name, 500) as path\n  from {{ source('legacy', 'employees') }} e\n  join h on e.manager_id = h.employee_id\n)\nselect\n  employee_id,\n  emp_name,\n  lvl,\n  path\nfrom h",
  "history": [
   {
    "attempt": 1,
-   "sql": "WITH RECURSIVE h AS (\n  SELECT employee_id, emp_name, manager_id, 0 AS lvl, CAST(emp_name AS VARCHAR) AS path\n  FROM {{ source('legacy', 'employees') }}\n  WHERE manager_id IS NULL\n  UNION ALL\n  SELECT e.employee_id, e.emp_name, e.manager_id, h.lvl + 1,\n         LEFT(h.path || ' > ' || e.emp_name, 500)\n  FROM {{ source('legacy', 'employees') }} e\n  JOIN h ON e.manager_id = h.employee_id\n)\nSELECT employee_id, emp_name, lvl, path\nFROM h",
+   "sql": "with recursive h as (\n  select\n    employee_id,\n    emp_name,\n    manager_id,\n    0 as lvl,\n    cast(emp_name as varchar) as path\n  from {{ source('legacy', 'employees') }}\n  where manager_id is null\n\n  union all\n\n  select\n    e.employee_id,\n    e.emp_name,\n    e.manager_id,\n    h.lvl + 1 as lvl,\n    left(h.path || ' > ' || e.emp_name, 500) as path\n  from {{ source('legacy', 'employees') }} e\n  join h on e.manager_id = h.employee_id\n)\nselect\n  employee_id,\n  emp_name,\n  lvl,\n  path\nfrom h",
    "status": "match",
    "detail": {
-    "equivalent": true,
-    "legacy_rows": 10,
-    "new_rows": 10,
-    "issues": []
+    "datasets": {
+     "base": 10,
+     "seed_101": 10,
+     "seed_202": 10,
+     "edge": 6
+    }
    }
   }
  ],
- "explanation": "This procedure builds an organisation chart from the employees table. It starts at the top-level employees (those with no manager), then walks down through each reporting line, recording each person's depth and a \" > \"-separated path from the top manager to them. The result replaces the org_hierarchy table on each run.",
+ "explanation": "This procedure builds an org chart table listing every employee with their reporting level (0 for top-level managers, increasing by one per management step) and a path of names from the top manager down to that employee. It walks the manager-to-employee links recursively and stores the result in a fresh table each run. Paths are capped at 500 characters, matching the original VARCHAR(500) column, so very deep chains are truncated.",
  "llm_calls": [
   {
    "model": "claude-haiku-5-5",
    "input_tokens": 1613,
-   "output_tokens": 1618,
+   "output_tokens": 1539,
    "cache_write_tokens": 0,
    "cache_read_tokens": 0,
-   "cost_usd": 0.00097
+   "cost_usd": 0.000931
   }
  ],
- "cost_usd": 0.00097
+ "cost_usd": 0.000931
 }

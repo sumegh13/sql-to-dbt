@@ -1,29 +1,32 @@
-WITH ordered AS (
-    SELECT
+with ordered as (
+    select
         customer_id,
         order_id,
         order_date,
         amount,
-        SUM(amount) OVER w AS s,
-        COUNT(*) OVER w AS n_all,
-        COUNT(amount) OVER w AS n_nonnull
-    FROM "warehouse"."legacy"."orders"
-    WINDOW w AS (
-        PARTITION BY customer_id
-        ORDER BY order_date NULLS FIRST, order_id NULLS FIRST
-        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-    )
+        sum(amount) over (
+            partition by customer_id
+            order by order_date asc nulls first, order_id asc nulls first
+            rows between unbounded preceding and current row
+        ) as running_sum,
+        sum(case when amount is null then 1 else 0 end) over (
+            partition by customer_id
+            order by order_date asc nulls first, order_id asc nulls first
+            rows between unbounded preceding and current row
+        ) as null_amounts_seen
+    from "warehouse"."legacy"."orders"
 )
-SELECT
+select
     customer_id,
     order_id,
     order_date,
     amount,
-    CAST(
-        CASE
-            WHEN customer_id IS NULL THEN amount
-            WHEN n_all = n_nonnull THEN s
-        END
-        AS DECIMAL(18,2)
-    ) AS running_total
-FROM ordered
+    cast(
+        case
+            when customer_id is null then amount
+            when null_amounts_seen > 0 then null
+            else running_sum
+        end
+        as decimal(18,2)
+    ) as running_total
+from ordered

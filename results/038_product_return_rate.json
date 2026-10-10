@@ -7,31 +7,39 @@
  ],
  "status": "verified",
  "attempts": 1,
- "rows": 10,
- "model_sql": "WITH joined AS (\n    SELECT\n        p.product_id,\n        p.product_name,\n        CASE WHEN rtrim(lower(o.status)) = 'returned' THEN 1 ELSE 0 END AS is_returned\n    FROM {{ source('legacy', 'order_items') }} i\n    JOIN {{ source('legacy', 'orders') }} o\n        ON o.order_id = i.order_id\n    JOIN {{ source('legacy', 'products') }} p\n        ON p.product_id = i.product_id\n)\nSELECT\n    product_id,\n    product_name,\n    COUNT(*) AS line_count,\n    SUM(is_returned) AS returned_lines,\n    CAST(SUM(is_returned) AS DOUBLE) / COUNT(*) AS return_rate\nFROM joined\nGROUP BY product_id, product_name",
+ "rows": 34,
+ "datasets": {
+  "base": 10,
+  "seed_101": 10,
+  "seed_202": 10,
+  "edge": 4
+ },
+ "model_sql": "WITH line_status AS (\n    SELECT\n        p.product_id,\n        p.product_name,\n        CASE WHEN rtrim(lower(o.status)) = 'returned' THEN 1 ELSE 0 END AS is_returned\n    FROM {{ source('legacy', 'order_items') }} i\n    JOIN {{ source('legacy', 'orders') }} o\n        ON o.order_id = i.order_id\n    JOIN {{ source('legacy', 'products') }} p\n        ON p.product_id = i.product_id\n)\nSELECT\n    product_id,\n    product_name,\n    CAST(COUNT(*) AS INTEGER) AS line_count,\n    CAST(SUM(is_returned) AS INTEGER) AS returned_lines,\n    CAST(SUM(is_returned) AS DOUBLE) / COUNT(*) AS return_rate\nFROM line_status\nGROUP BY product_id, product_name",
  "history": [
   {
    "attempt": 1,
-   "sql": "WITH joined AS (\n    SELECT\n        p.product_id,\n        p.product_name,\n        CASE WHEN rtrim(lower(o.status)) = 'returned' THEN 1 ELSE 0 END AS is_returned\n    FROM {{ source('legacy', 'order_items') }} i\n    JOIN {{ source('legacy', 'orders') }} o\n        ON o.order_id = i.order_id\n    JOIN {{ source('legacy', 'products') }} p\n        ON p.product_id = i.product_id\n)\nSELECT\n    product_id,\n    product_name,\n    COUNT(*) AS line_count,\n    SUM(is_returned) AS returned_lines,\n    CAST(SUM(is_returned) AS DOUBLE) / COUNT(*) AS return_rate\nFROM joined\nGROUP BY product_id, product_name",
+   "sql": "WITH line_status AS (\n    SELECT\n        p.product_id,\n        p.product_name,\n        CASE WHEN rtrim(lower(o.status)) = 'returned' THEN 1 ELSE 0 END AS is_returned\n    FROM {{ source('legacy', 'order_items') }} i\n    JOIN {{ source('legacy', 'orders') }} o\n        ON o.order_id = i.order_id\n    JOIN {{ source('legacy', 'products') }} p\n        ON p.product_id = i.product_id\n)\nSELECT\n    product_id,\n    product_name,\n    CAST(COUNT(*) AS INTEGER) AS line_count,\n    CAST(SUM(is_returned) AS INTEGER) AS returned_lines,\n    CAST(SUM(is_returned) AS DOUBLE) / COUNT(*) AS return_rate\nFROM line_status\nGROUP BY product_id, product_name",
    "status": "match",
    "detail": {
-    "equivalent": true,
-    "legacy_rows": 10,
-    "new_rows": 10,
-    "issues": []
+    "datasets": {
+     "base": 10,
+     "seed_101": 10,
+     "seed_202": 10,
+     "edge": 4
+    }
    }
   }
  ],
- "explanation": "This procedure builds a per-product return report. For every order line, it joins to the order and product, counts all lines for each product, and counts how many of those lines have an order status of \"returned\". It then stores the product ID, name, total lines, returned lines, and the return rate (returned lines divided by total lines) as a float.",
+ "explanation": "This procedure builds a per-product summary of order lines: for each product it counts how many order lines include it, how many of those lines have a status of \"returned\", and the share of lines returned. The return rate is stored as a floating-point number. The rebuilt model matches SQL Server's case- and trailing-space-insensitive status comparison, so variants like \"Returned\" or \"RETURNED \" still count as returns.",
  "llm_calls": [
   {
    "model": "claude-haiku-5-5",
    "input_tokens": 1614,
-   "output_tokens": 1143,
+   "output_tokens": 1213,
    "cache_write_tokens": 0,
    "cache_read_tokens": 0,
-   "cost_usd": 0.000733
+   "cost_usd": 0.000768
   }
  ],
- "cost_usd": 0.000733
+ "cost_usd": 0.000768
 }

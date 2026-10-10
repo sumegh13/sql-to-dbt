@@ -5,27 +5,25 @@
     SELECT
         customer_id,
         legacy_code,
-        TRIM(legacy_code) AS t
+        trim(legacy_code, ' ') AS code_trimmed
     FROM "warehouse"."legacy"."customers"
 ),
 parsed AS (
     SELECT
         customer_id,
         legacy_code,
+        code_trimmed,
         CASE
-            WHEN regexp_matches(t, '^[+-]?[0-9]+$') THEN TRY_CAST(t AS BIGINT)
-        END AS n
+            WHEN code_trimmed = '' THEN 0
+            WHEN regexp_matches(code_trimmed, '^[+-]?[0-9]+$') THEN TRY_CAST(code_trimmed AS INTEGER)
+            ELSE NULL
+        END AS legacy_code_num
     FROM src
 )
 SELECT
     customer_id,
     legacy_code,
-    CASE
-        WHEN n BETWEEN -2147483648 AND 2147483647 THEN CAST(n AS INTEGER)
-    END AS legacy_code_num,
-    CASE
-        WHEN n IS NULL OR n NOT BETWEEN -2147483648 AND 2147483647 THEN 1
-        ELSE 0
-    END AS invalid
+    legacy_code_num,
+    CASE WHEN legacy_code_num IS NULL THEN 1 ELSE 0 END AS invalid
 FROM parsed
   );

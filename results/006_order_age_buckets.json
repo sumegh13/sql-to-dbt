@@ -7,31 +7,39 @@
  ],
  "status": "verified",
  "attempts": 1,
- "rows": 34,
- "model_sql": "WITH aged AS (\n    SELECT\n        order_id,\n        CAST(DATE '2025-12-31' - order_date AS INTEGER) AS age_days\n    FROM {{ source('legacy', 'orders') }}\n)\nSELECT\n    order_id,\n    age_days,\n    CASE\n        WHEN age_days <= 30 THEN '0-30'\n        WHEN age_days <= 90 THEN '31-90'\n        ELSE '90+'\n    END AS bucket\nFROM aged",
+ "rows": 117,
+ "datasets": {
+  "base": 34,
+  "seed_101": 34,
+  "seed_202": 34,
+  "edge": 15
+ },
+ "model_sql": "WITH aged AS (\n    SELECT\n        order_id,\n        date_diff('day', order_date, DATE '2025-12-31') AS age_days\n    FROM {{ source('legacy', 'orders') }}\n)\nSELECT\n    order_id,\n    age_days,\n    CASE\n        WHEN age_days <= 30 THEN '0-30'\n        WHEN age_days <= 90 THEN '31-90'\n        ELSE '90+'\n    END AS bucket\nFROM aged",
  "history": [
   {
    "attempt": 1,
-   "sql": "WITH aged AS (\n    SELECT\n        order_id,\n        CAST(DATE '2025-12-31' - order_date AS INTEGER) AS age_days\n    FROM {{ source('legacy', 'orders') }}\n)\nSELECT\n    order_id,\n    age_days,\n    CASE\n        WHEN age_days <= 30 THEN '0-30'\n        WHEN age_days <= 90 THEN '31-90'\n        ELSE '90+'\n    END AS bucket\nFROM aged",
+   "sql": "WITH aged AS (\n    SELECT\n        order_id,\n        date_diff('day', order_date, DATE '2025-12-31') AS age_days\n    FROM {{ source('legacy', 'orders') }}\n)\nSELECT\n    order_id,\n    age_days,\n    CASE\n        WHEN age_days <= 30 THEN '0-30'\n        WHEN age_days <= 90 THEN '31-90'\n        ELSE '90+'\n    END AS bucket\nFROM aged",
    "status": "match",
    "detail": {
-    "equivalent": true,
-    "legacy_rows": 34,
-    "new_rows": 34,
-    "issues": []
+    "datasets": {
+     "base": 34,
+     "seed_101": 34,
+     "seed_202": 34,
+     "edge": 15
+    }
    }
   }
  ],
- "explanation": "This procedure rebuilds the table order_age_buckets from every row in dbo.orders. For each order, it counts the days from the order date to 31 December 2025 and labels the order's age as \"0-30\", \"31-90\", or \"90+\". The table is dropped and recreated on each run.",
+ "explanation": "This procedure rebuilds the order_age_buckets table from dbo.orders. For each order, it counts the days from the order date to a fixed reporting date of 31 December 2025, then labels the order as \"0-30\", \"31-90\", or \"90+\" based on that age. Orders with no date, or dated after the reporting date, are handled by the same CASE logic as the original.",
  "llm_calls": [
   {
    "model": "claude-haiku-5-5",
    "input_tokens": 1538,
-   "output_tokens": 690,
+   "output_tokens": 799,
    "cache_write_tokens": 0,
    "cache_read_tokens": 0,
-   "cost_usd": 0.000499
+   "cost_usd": 0.000553
   }
  ],
- "cost_usd": 0.000499
+ "cost_usd": 0.000553
 }

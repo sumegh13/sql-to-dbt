@@ -4,32 +4,31 @@
     WITH spend AS (
     SELECT
         customer_id,
-        SUM(amount) AS spend
+        CAST(SUM(amount) AS DECIMAL(38,2)) AS spend
     FROM "warehouse"."legacy"."orders"
-    WHERE rtrim(lower(status)) NOT IN ('cancelled', 'returned')
+    WHERE RTRIM(LOWER(status)) NOT IN ('cancelled', 'returned')
     GROUP BY customer_id
 ),
 joined AS (
     SELECT
         c.customer_id,
         c.customer_name,
-        COALESCE(s.spend, 0) AS spend
+        CAST(COALESCE(s.spend, 0) AS DECIMAL(38,2)) AS spend
     FROM "warehouse"."legacy"."customers" c
     LEFT JOIN spend s
         ON s.customer_id = c.customer_id
 ),
-flagged AS (
+avg_spend AS (
+    -- T-SQL AVG over DECIMAL(38,2) keeps scale 2 and truncates the result
     SELECT
-        customer_id,
-        customer_name,
-        spend,
-        spend * COUNT(*) OVER () > SUM(spend) OVER () AS is_above
+        CAST(TRUNC(SUM(spend) * 100 / NULLIF(COUNT(*), 0)) / 100 AS DECIMAL(38,2)) AS avg_spend
     FROM joined
 )
 SELECT
-    customer_id,
-    customer_name,
-    spend,
-    CASE WHEN is_above THEN 'above_avg' ELSE 'at_or_below_avg' END AS vs_avg
-FROM flagged
+    j.customer_id,
+    j.customer_name,
+    j.spend,
+    CASE WHEN j.spend > a.avg_spend THEN 'above_avg' ELSE 'at_or_below_avg' END AS vs_avg
+FROM joined j
+CROSS JOIN avg_spend a
   );

@@ -1,13 +1,13 @@
 
   
   create view "warehouse"."main"."order_product_list__dbt_tmp" as (
-    SELECT
+    select
     o.order_id,
-    string_agg(p.product_name, ', ' ORDER BY lower(rtrim(p.product_name))) AS products
-FROM "warehouse"."legacy"."orders" o
-JOIN "warehouse"."legacy"."order_items" i
-    ON i.order_id = o.order_id
-JOIN "warehouse"."legacy"."products" p
-    ON p.product_id = i.product_id
-GROUP BY o.order_id
+    string_agg(p.product_name, ', ' order by lower(p.product_name), p.product_name) as products
+from "warehouse"."legacy"."orders" o
+join "warehouse"."legacy"."order_items" i
+    on i.order_id = o.order_id
+join "warehouse"."legacy"."products" p
+    on p.product_id = i.product_id
+group by o.order_id
   );

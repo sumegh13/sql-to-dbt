@@ -64,7 +64,9 @@ def _feedback(history):
     for h in history[-2:]:  # last two attempts keep the prompt small
         detail = h["detail"] if isinstance(h["detail"], str) else json.dumps(h["detail"], default=str)
         parts.append(f"Attempt {h['attempt']} ({h['status']}):\n<sql>\n{h['sql']}\n</sql>\nResult: {detail[:3000]}")
-    return ("\n\nYour previous attempts did not match the legacy output. 'in_legacy_not_new' rows are what the "
+    return ("\n\nYour previous attempts did not match the legacy output. The model is checked against several "
+            "source datasets (base, random seeds, and an 'edge' set with NULLs, trailing spaces, ties, boundary values, "
+            "orphan rows); 'dataset' names the one that failed. 'in_legacy_not_new' rows are what the "
             "procedure produced that your model did not; 'in_new_not_legacy' rows are what your model produced instead. "
             "Find the semantic difference and fix it.\n\n" + "\n\n".join(parts))
 

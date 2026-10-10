@@ -8,32 +8,87 @@
   "control-break"
  ],
  "status": "verified",
- "attempts": 1,
- "rows": 21,
- "model_sql": "with joined as (\n    select\n        p.payment_id,\n        p.order_id,\n        p.paid_amount,\n        p.paid_date,\n        o.amount\n    from {{ source('legacy', 'payments') }} p\n    join {{ source('legacy', 'orders') }} o\n        on o.order_id = p.order_id\n),\nrunning as (\n    select\n        payment_id,\n        order_id,\n        paid_amount,\n        amount,\n        -- T-SQL cursor: once a NULL payment enters the running total, it stays NULL for the rest of the order\n        case\n            when count(*) over (\n                    partition by order_id\n                    order by paid_date nulls first, payment_id\n                    rows between unbounded preceding and current row)\n                 = count(paid_amount) over (\n                    partition by order_id\n                    order by paid_date nulls first, payment_id\n                    rows between unbounded preceding and current row)\n            then cast(sum(paid_amount) over (\n                    partition by order_id\n                    order by paid_date nulls first, payment_id\n                    rows between unbounded preceding and current row) as decimal(18,2))\n            else cast(null as decimal(18,2))\n        end as cumulative_paid\n    from joined\n)\nselect\n    payment_id,\n    order_id,\n    cast(paid_amount as decimal(18,2)) as paid_amount,\n    cumulative_paid,\n    cast(amount - cumulative_paid as decimal(18,2)) as balance_after,\n    cast(case when cumulative_paid > amount then 1 else 0 end as integer) as overpaid\nfrom running",
+ "attempts": 2,
+ "rows": 75,
+ "datasets": {
+  "base": 21,
+  "seed_101": 24,
+  "seed_202": 23,
+  "edge": 7
+ },
+ "model_sql": "with src as (\n    select\n        p.payment_id,\n        p.order_id,\n        p.paid_amount,\n        p.paid_date,\n        o.amount\n    from {{ source('legacy', 'payments') }} p\n    join {{ source('legacy', 'orders') }} o\n        on o.order_id = p.order_id\n),\nrunning as (\n    select\n        payment_id,\n        order_id,\n        paid_amount,\n        amount,\n        sum(paid_amount) over (\n            partition by order_id\n            order by paid_date nulls first, payment_id nulls first\n            rows between unbounded preceding and current row\n        ) as raw_running_sum,\n        sum(case when paid_amount is null then 1 else 0 end) over (\n            partition by order_id\n            order by paid_date nulls first, payment_id nulls first\n            rows between unbounded preceding and current row\n        ) as null_paids_seen\n    from src\n),\nfinal as (\n    select\n        payment_id,\n        order_id,\n        cast(paid_amount as decimal(18,2)) as paid_amount,\n        case\n            when null_paids_seen > 0 then cast(null as decimal(18,2))\n            else cast(raw_running_sum as decimal(18,2))\n        end as cumulative_paid,\n        amount\n    from running\n)\nselect\n    payment_id,\n    order_id,\n    paid_amount,\n    cumulative_paid,\n    cast(amount - cumulative_paid as decimal(18,2)) as balance_after,\n    case when cumulative_paid > amount then 1 else 0 end as overpaid\nfrom final",
  "history": [
   {
    "attempt": 1,
-   "sql": "with joined as (\n    select\n        p.payment_id,\n        p.order_id,\n        p.paid_amount,\n        p.paid_date,\n        o.amount\n    from {{ source('legacy', 'payments') }} p\n    join {{ source('legacy', 'orders') }} o\n        on o.order_id = p.order_id\n),\nrunning as (\n    select\n        payment_id,\n        order_id,\n        paid_amount,\n        amount,\n        -- T-SQL cursor: once a NULL payment enters the running total, it stays NULL for the rest of the order\n        case\n            when count(*) over (\n                    partition by order_id\n                    order by paid_date nulls first, payment_id\n                    rows between unbounded preceding and current row)\n                 = count(paid_amount) over (\n                    partition by order_id\n                    order by paid_date nulls first, payment_id\n                    rows between unbounded preceding and current row)\n            then cast(sum(paid_amount) over (\n                    partition by order_id\n                    order by paid_date nulls first, payment_id\n                    rows between unbounded preceding and current row) as decimal(18,2))\n            else cast(null as decimal(18,2))\n        end as cumulative_paid\n    from joined\n)\nselect\n    payment_id,\n    order_id,\n    cast(paid_amount as decimal(18,2)) as paid_amount,\n    cumulative_paid,\n    cast(amount - cumulative_paid as decimal(18,2)) as balance_after,\n    cast(case when cumulative_paid > amount then 1 else 0 end as integer) as overpaid\nfrom running",
+   "sql": "with src as (\n    select\n        p.payment_id,\n        p.order_id,\n        p.paid_amount,\n        p.paid_date,\n        o.amount\n    from {{ source('legacy', 'payments') }} p\n    join {{ source('legacy', 'orders') }} o\n        on o.order_id = p.order_id\n),\nrunning as (\n    select\n        payment_id,\n        order_id,\n        paid_amount,\n        amount,\n        cast(\n            sum(paid_amount) over (\n                partition by order_id\n                order by paid_date, payment_id\n                rows between unbounded preceding and current row\n            ) as decimal(18,2)\n        ) as cumulative_paid\n    from src\n)\nselect\n    payment_id,\n    order_id,\n    cast(paid_amount as decimal(18,2)) as paid_amount,\n    cumulative_paid,\n    cast(amount - cumulative_paid as decimal(18,2)) as balance_after,\n    case when cumulative_paid > amount then 1 else 0 end as overpaid\nfrom running",
+   "status": "diff",
+   "detail": {
+    "dataset": "edge",
+    "equivalent": false,
+    "legacy_rows": 7,
+    "new_rows": 7,
+    "issues": [
+     {
+      "in_legacy_not_new": [
+       [
+        5,
+        3,
+        10.0,
+        null,
+        null,
+        0
+       ]
+      ],
+      "count": 1
+     },
+     {
+      "in_new_not_legacy": [
+       [
+        5,
+        3,
+        10.0,
+        10.0,
+        null,
+        0
+       ]
+      ],
+      "count": 1
+     }
+    ]
+   }
+  },
+  {
+   "attempt": 2,
+   "sql": "with src as (\n    select\n        p.payment_id,\n        p.order_id,\n        p.paid_amount,\n        p.paid_date,\n        o.amount\n    from {{ source('legacy', 'payments') }} p\n    join {{ source('legacy', 'orders') }} o\n        on o.order_id = p.order_id\n),\nrunning as (\n    select\n        payment_id,\n        order_id,\n        paid_amount,\n        amount,\n        sum(paid_amount) over (\n            partition by order_id\n            order by paid_date nulls first, payment_id nulls first\n            rows between unbounded preceding and current row\n        ) as raw_running_sum,\n        sum(case when paid_amount is null then 1 else 0 end) over (\n            partition by order_id\n            order by paid_date nulls first, payment_id nulls first\n            rows between unbounded preceding and current row\n        ) as null_paids_seen\n    from src\n),\nfinal as (\n    select\n        payment_id,\n        order_id,\n        cast(paid_amount as decimal(18,2)) as paid_amount,\n        case\n            when null_paids_seen > 0 then cast(null as decimal(18,2))\n            else cast(raw_running_sum as decimal(18,2))\n        end as cumulative_paid,\n        amount\n    from running\n)\nselect\n    payment_id,\n    order_id,\n    paid_amount,\n    cumulative_paid,\n    cast(amount - cumulative_paid as decimal(18,2)) as balance_after,\n    case when cumulative_paid > amount then 1 else 0 end as overpaid\nfrom final",
    "status": "match",
    "detail": {
-    "equivalent": true,
-    "legacy_rows": 21,
-    "new_rows": 21,
-    "issues": []
+    "datasets": {
+     "base": 21,
+     "seed_101": 24,
+     "seed_202": 23,
+     "edge": 7
+    }
    }
   }
  ],
- "explanation": "This procedure rebuilds a payment ledger for each order, with payments applied in date order. For every payment it shows the running total paid against that order, the balance still owed, and a flag (1 or 0) when the total paid exceeds the order amount. The cursor-and-loop version is replaced here by one set-based query with running-sum window functions.",
+ "explanation": "This procedure builds a payment ledger that tracks how much has been paid against each order. Payments are processed in date order within each order, and each row shows the running total paid, the remaining balance, and whether the order has been overpaid. The set-based version uses a window sum partitioned by order, which gives the same running totals as the cursor loop.",
  "llm_calls": [
   {
    "model": "claude-haiku-5-5",
    "input_tokens": 1929,
-   "output_tokens": 2145,
+   "output_tokens": 1500,
    "cache_write_tokens": 0,
    "cache_read_tokens": 0,
-   "cost_usd": 0.001265
+   "cost_usd": 0.000943
+  },
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 2566,
+   "output_tokens": 2167,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.00134
   }
  ],
- "cost_usd": 0.001265
+ "cost_usd": 0.002283
 }

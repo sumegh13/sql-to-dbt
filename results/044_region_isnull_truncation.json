@@ -7,31 +7,39 @@
  ],
  "status": "verified",
  "attempts": 1,
- "rows": 12,
- "model_sql": "SELECT\n    customer_id,\n    CASE WHEN region IS NULL THEN LEFT('Not_Assigned_Yet', 10) ELSE region END AS region_isnull,\n    COALESCE(region, 'Not_Assigned_Yet') AS region_coalesce\nFROM {{ source('legacy', 'customers') }}",
+ "rows": 43,
+ "datasets": {
+  "base": 12,
+  "seed_101": 12,
+  "seed_202": 12,
+  "edge": 7
+ },
+ "model_sql": "SELECT\n    customer_id,\n    COALESCE(region, LEFT('Not_Assigned_Yet', 10)) AS region_isnull,\n    COALESCE(region, 'Not_Assigned_Yet') AS region_coalesce\nFROM {{ source('legacy', 'customers') }}",
  "history": [
   {
    "attempt": 1,
-   "sql": "SELECT\n    customer_id,\n    CASE WHEN region IS NULL THEN LEFT('Not_Assigned_Yet', 10) ELSE region END AS region_isnull,\n    COALESCE(region, 'Not_Assigned_Yet') AS region_coalesce\nFROM {{ source('legacy', 'customers') }}",
+   "sql": "SELECT\n    customer_id,\n    COALESCE(region, LEFT('Not_Assigned_Yet', 10)) AS region_isnull,\n    COALESCE(region, 'Not_Assigned_Yet') AS region_coalesce\nFROM {{ source('legacy', 'customers') }}",
    "status": "match",
    "detail": {
-    "equivalent": true,
-    "legacy_rows": 12,
-    "new_rows": 12,
-    "issues": []
+    "datasets": {
+     "base": 12,
+     "seed_101": 12,
+     "seed_202": 12,
+     "edge": 7
+    }
    }
   }
  ],
- "explanation": "This procedure copies every customer's ID and region into a new table, filling in missing regions with the placeholder \"Not_Assigned_Yet\" using two different functions. ISNULL cuts the placeholder down to 10 characters, because the region column is only 10 characters wide, so it is stored as \"Not_Assign\". COALESCE keeps the full placeholder text. The model reproduces that difference exactly and returns one row per customer.",
+ "explanation": "This procedure rebuilds a table with one row per customer, showing each customer's region with a placeholder when the region is missing. It produces two versions of that placeholder. The ISNULL version is cut down to 10 characters because the column is defined as varchar(10), so it becomes 'Not_Assign'. The COALESCE version keeps the full text 'Not_Assigned_Yet'.",
  "llm_calls": [
   {
    "model": "claude-haiku-5-5",
    "input_tokens": 1486,
-   "output_tokens": 971,
+   "output_tokens": 974,
    "cache_write_tokens": 0,
    "cache_read_tokens": 0,
-   "cost_usd": 0.000634
+   "cost_usd": 0.000636
   }
  ],
- "cost_usd": 0.000634
+ "cost_usd": 0.000636
 }

@@ -8,31 +8,39 @@
  ],
  "status": "verified",
  "attempts": 1,
- "rows": 10,
- "model_sql": "WITH ranked AS (\n    SELECT\n        product_id,\n        price,\n        effective_date,\n        ROW_NUMBER() OVER (\n            PARTITION BY product_id\n            ORDER BY effective_date DESC\n        ) AS rn\n    FROM {{ source('legacy', 'price_history') }}\n    WHERE effective_date <= DATE '2025-12-31'\n)\nSELECT\n    product_id,\n    price,\n    effective_date\nFROM ranked\nWHERE rn = 1",
+ "rows": 32,
+ "datasets": {
+  "base": 10,
+  "seed_101": 10,
+  "seed_202": 10,
+  "edge": 2
+ },
+ "model_sql": "WITH r AS (\n  SELECT\n    product_id,\n    price,\n    effective_date,\n    ROW_NUMBER() OVER (PARTITION BY product_id ORDER BY effective_date DESC) AS rn\n  FROM {{ source('legacy', 'price_history') }}\n  WHERE effective_date <= DATE '2025-12-31'\n)\nSELECT\n  product_id,\n  price,\n  effective_date\nFROM r\nWHERE rn = 1",
  "history": [
   {
    "attempt": 1,
-   "sql": "WITH ranked AS (\n    SELECT\n        product_id,\n        price,\n        effective_date,\n        ROW_NUMBER() OVER (\n            PARTITION BY product_id\n            ORDER BY effective_date DESC\n        ) AS rn\n    FROM {{ source('legacy', 'price_history') }}\n    WHERE effective_date <= DATE '2025-12-31'\n)\nSELECT\n    product_id,\n    price,\n    effective_date\nFROM ranked\nWHERE rn = 1",
+   "sql": "WITH r AS (\n  SELECT\n    product_id,\n    price,\n    effective_date,\n    ROW_NUMBER() OVER (PARTITION BY product_id ORDER BY effective_date DESC) AS rn\n  FROM {{ source('legacy', 'price_history') }}\n  WHERE effective_date <= DATE '2025-12-31'\n)\nSELECT\n  product_id,\n  price,\n  effective_date\nFROM r\nWHERE rn = 1",
    "status": "match",
    "detail": {
-    "equivalent": true,
-    "legacy_rows": 10,
-    "new_rows": 10,
-    "issues": []
+    "datasets": {
+     "base": 10,
+     "seed_101": 10,
+     "seed_202": 10,
+     "edge": 2
+    }
    }
   }
  ],
- "explanation": "This procedure builds a table with the most recent price for each product, using only price history entries dated on or before December 31, 2025. For each product it keeps the row with the latest effective date and discards older prices. The result has one row per product, with the product ID, its current price, and the date that price took effect.",
+ "explanation": "This procedure builds a table with the most recent price for each product, considering only price records effective on or before December 31, 2025. For each product it keeps the single price row with the latest effective date. The result has one row per product with its product ID, price, and effective date.",
  "llm_calls": [
   {
    "model": "claude-haiku-5-5",
    "input_tokens": 1512,
-   "output_tokens": 579,
+   "output_tokens": 476,
    "cache_write_tokens": 0,
    "cache_read_tokens": 0,
-   "cost_usd": 0.000441
+   "cost_usd": 0.000389
   }
  ],
- "cost_usd": 0.000441
+ "cost_usd": 0.000389
 }

@@ -9,31 +9,39 @@
  ],
  "status": "verified",
  "attempts": 1,
- "rows": 34,
- "model_sql": "SELECT\n  order_id,\n  order_date,\n  last_day(order_date) AS month_end,\n  CAST(CASE WHEN EXTRACT(MONTH FROM order_date) >= 4\n            THEN EXTRACT(YEAR FROM order_date) + 1\n            ELSE EXTRACT(YEAR FROM order_date) END AS INTEGER) AS fiscal_year,\n  CAST(((EXTRACT(MONTH FROM order_date) + 8) % 12) // 3 + 1 AS INTEGER) AS fiscal_qtr,\n  strftime(order_date, '%A') AS dow\nFROM {{ source('legacy', 'orders') }}",
+ "rows": 117,
+ "datasets": {
+  "base": 34,
+  "seed_101": 34,
+  "seed_202": 34,
+  "edge": 15
+ },
+ "model_sql": "SELECT\n  order_id,\n  order_date,\n  last_day(order_date) AS month_end,\n  CASE WHEN month(order_date) >= 4 THEN year(order_date) + 1 ELSE year(order_date) END AS fiscal_year,\n  ((month(order_date) + 8) % 12) // 3 + 1 AS fiscal_qtr,\n  strftime(order_date, '%A') AS dow\nFROM {{ source('legacy', 'orders') }}",
  "history": [
   {
    "attempt": 1,
-   "sql": "SELECT\n  order_id,\n  order_date,\n  last_day(order_date) AS month_end,\n  CAST(CASE WHEN EXTRACT(MONTH FROM order_date) >= 4\n            THEN EXTRACT(YEAR FROM order_date) + 1\n            ELSE EXTRACT(YEAR FROM order_date) END AS INTEGER) AS fiscal_year,\n  CAST(((EXTRACT(MONTH FROM order_date) + 8) % 12) // 3 + 1 AS INTEGER) AS fiscal_qtr,\n  strftime(order_date, '%A') AS dow\nFROM {{ source('legacy', 'orders') }}",
+   "sql": "SELECT\n  order_id,\n  order_date,\n  last_day(order_date) AS month_end,\n  CASE WHEN month(order_date) >= 4 THEN year(order_date) + 1 ELSE year(order_date) END AS fiscal_year,\n  ((month(order_date) + 8) % 12) // 3 + 1 AS fiscal_qtr,\n  strftime(order_date, '%A') AS dow\nFROM {{ source('legacy', 'orders') }}",
    "status": "match",
    "detail": {
-    "equivalent": true,
-    "legacy_rows": 34,
-    "new_rows": 34,
-    "issues": []
+    "datasets": {
+     "base": 34,
+     "seed_101": 34,
+     "seed_202": 34,
+     "edge": 15
+    }
    }
   }
  ],
- "explanation": "This procedure builds a fiscal calendar table with one row per order. For each order it adds the last day of the order's month, a fiscal year and quarter (the fiscal year starts in April), and the full English weekday name. The table is rebuilt from scratch on each run.",
+ "explanation": "This procedure rebuilds a fiscal calendar table from the orders table, with one row per order. For each order it adds the last day of the order's month, a fiscal year that starts in April (so April to December take the next calendar year), a fiscal quarter, and the English weekday name. The model keeps every order row, including duplicates, and returns the same six columns in the same order.",
  "llm_calls": [
   {
    "model": "claude-haiku-5-5",
    "input_tokens": 1577,
-   "output_tokens": 901,
+   "output_tokens": 896,
    "cache_write_tokens": 0,
    "cache_read_tokens": 0,
-   "cost_usd": 0.000608
+   "cost_usd": 0.000606
   }
  ],
- "cost_usd": 0.000608
+ "cost_usd": 0.000606
 }

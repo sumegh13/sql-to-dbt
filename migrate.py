@@ -36,16 +36,22 @@ def _migrate(proc_dir, meta, base):
     flags = preflight.triage(proc_sql, meta["output"], legacy.SOURCE_TABLES)
     if flags:
         return _human(base, *flags[0])
-    schema, sources, expected = legacy.run_proc(proc_sql, meta["proc"], meta["output"])
-    _, _, again = legacy.run_proc(proc_sql, meta["proc"], meta["output"])
-    if _canon(expected) != _canon(again):  # objective determinism check
-        return _human(base, "nondeterministic", "Legacy proc returns different output on identical input.")
+    expected = {}
+    for v in legacy.VARIANTS:
+        schema, sources, out = legacy.run_proc(proc_sql, meta["proc"], meta["output"], v)
+        _, _, again = legacy.run_proc(proc_sql, meta["proc"], meta["output"], v)
+        if _canon(out) != _canon(again):  # objective determinism check
+            return _human(base, "nondeterministic", f"Legacy proc returns different output on identical input (dataset {v}).")
+        dbt_runner.load_sources(schema, sources, v)
+        expected[v] = out
+        if v == "base":
+            base_schema, source_names = schema, list(sources)
+    schema = base_schema
+    dbt_runner.write_sources_yml(source_names)
 
-    dbt_runner.load_sources(schema, sources)
-    dbt_runner.write_sources_yml(list(sources))
     history, sql, explanation, calls = [], None, None, []
     for attempt in range(1, MAX_ATTEMPTS + 1):
-        t = translate.translate(proc_dir, proc_sql, schema, expected[0], history)
+        t = translate.translate(proc_dir, proc_sql, schema, expected["base"][0], history)
         if t["usage"]:
             calls.append(t["usage"])
         explanation = explanation or t["explanation"]
@@ -60,9 +66,22 @@ def _migrate(proc_dir, meta, base):
         if err:
             history.append({"attempt": attempt, "sql": sql, "status": "dbt_error", "detail": err})
             continue
-        res = diff.compare(*expected, *got)
-        history.append({"attempt": attempt, "sql": sql, "status": "match" if res["equivalent"] else "diff", "detail": res})
-        if res["equivalent"]:
-            return {**base, "status": "verified", "attempts": attempt, "rows": res["legacy_rows"], "model_sql": sql,
-                    "history": history, **extra}
+        datasets, failed = {}, None
+        for v in legacy.VARIANTS:
+            if v != "base":
+                got, err = dbt_runner.run_compiled(meta["slug"], v)
+                if err:
+                    failed = {"attempt": attempt, "sql": sql, "status": "runtime_error", "detail": f"dataset {v}: {err}"}
+                    break
+            res = diff.compare(*expected[v], *got)
+            if not res["equivalent"]:
+                failed = {"attempt": attempt, "sql": sql, "status": "diff", "detail": {"dataset": v, **res}}
+                break
+            datasets[v] = res["legacy_rows"]
+        if failed:
+            history.append(failed)
+            continue
+        history.append({"attempt": attempt, "sql": sql, "status": "match", "detail": {"datasets": datasets}})
+        return {**base, "status": "verified", "attempts": attempt, "rows": sum(datasets.values()), "datasets": datasets,
+                "model_sql": sql, "history": history, **extra}
     return {**_human(base, "unresolved_diff", f"Outputs still differ after {MAX_ATTEMPTS} attempts.", history, sql), **extra}

@@ -8,31 +8,39 @@
  ],
  "status": "verified",
  "attempts": 1,
- "rows": 12,
- "model_sql": "SELECT\n    customer_id,\n    UPPER(LTRIM(RTRIM(customer_name))) AS clean_name,\n    LEFT(LTRIM(customer_name), 1) AS initial,\n    customer_name || ' <' || email || '>' AS display,\n    REPLACE(LOWER(RTRIM(LTRIM(customer_name))), ' ', '_') AS slug,\n    CAST(LENGTH(RTRIM(customer_name)) AS INTEGER) AS name_len\nFROM {{ source('legacy', 'customers') }}",
+ "rows": 43,
+ "datasets": {
+  "base": 12,
+  "seed_101": 12,
+  "seed_202": 12,
+  "edge": 7
+ },
+ "model_sql": "SELECT\n    customer_id,\n    UPPER(LTRIM(RTRIM(customer_name))) AS clean_name,\n    LEFT(LTRIM(customer_name), 1) AS initial,\n    customer_name || ' <' || email || '>' AS display,\n    REPLACE(LOWER(LTRIM(RTRIM(customer_name))), ' ', '_') AS slug,\n    CAST(LENGTH(RTRIM(customer_name)) AS INTEGER) AS name_len\nFROM {{ source('legacy', 'customers') }}",
  "history": [
   {
    "attempt": 1,
-   "sql": "SELECT\n    customer_id,\n    UPPER(LTRIM(RTRIM(customer_name))) AS clean_name,\n    LEFT(LTRIM(customer_name), 1) AS initial,\n    customer_name || ' <' || email || '>' AS display,\n    REPLACE(LOWER(RTRIM(LTRIM(customer_name))), ' ', '_') AS slug,\n    CAST(LENGTH(RTRIM(customer_name)) AS INTEGER) AS name_len\nFROM {{ source('legacy', 'customers') }}",
+   "sql": "SELECT\n    customer_id,\n    UPPER(LTRIM(RTRIM(customer_name))) AS clean_name,\n    LEFT(LTRIM(customer_name), 1) AS initial,\n    customer_name || ' <' || email || '>' AS display,\n    REPLACE(LOWER(LTRIM(RTRIM(customer_name))), ' ', '_') AS slug,\n    CAST(LENGTH(RTRIM(customer_name)) AS INTEGER) AS name_len\nFROM {{ source('legacy', 'customers') }}",
    "status": "match",
    "detail": {
-    "equivalent": true,
-    "legacy_rows": 12,
-    "new_rows": 12,
-    "issues": []
+    "datasets": {
+     "base": 12,
+     "seed_101": 12,
+     "seed_202": 12,
+     "edge": 7
+    }
    }
   }
  ],
- "explanation": "This procedure rebuilds a customer name cleanup table from the customers source. For each customer it produces an upper-cased trimmed name, the first letter of the name, a \"Name <email>\" display string, a lowercase underscore-separated slug, and the name length. The table is fully replaced on each run, with one output row per customer.",
+ "explanation": "This procedure rebuilds a customer name cleanup table from the customers table, producing one row per customer. For each customer it creates an upper-cased trimmed name, the first letter of the name, a display label combining the name with the email address, a lowercase underscore-separated slug, and the name length. The length ignores trailing spaces, as SQL Server's LEN does.",
  "llm_calls": [
   {
    "model": "claude-haiku-5-5",
    "input_tokens": 1562,
-   "output_tokens": 1081,
+   "output_tokens": 1193,
    "cache_write_tokens": 0,
    "cache_read_tokens": 0,
-   "cost_usd": 0.000697
+   "cost_usd": 0.000753
   }
  ],
- "cost_usd": 0.000697
+ "cost_usd": 0.000753
 }

@@ -7,31 +7,39 @@
  ],
  "status": "verified",
  "attempts": 1,
- "rows": 10,
- "model_sql": "WITH inv AS (\n    SELECT\n        product_id,\n        RTRIM(UPPER(warehouse)) AS wh,\n        qty_on_hand\n    FROM {{ source('legacy', 'inventory') }}\n)\nSELECT\n    product_id,\n    CAST(COALESCE(SUM(CASE WHEN wh = 'A' THEN qty_on_hand END), 0) AS INTEGER) AS wh_a,\n    CAST(COALESCE(SUM(CASE WHEN wh = 'B' THEN qty_on_hand END), 0) AS INTEGER) AS wh_b\nFROM inv\nGROUP BY product_id",
+ "rows": 34,
+ "datasets": {
+  "base": 10,
+  "seed_101": 10,
+  "seed_202": 10,
+  "edge": 4
+ },
+ "model_sql": "WITH base AS (\n    SELECT\n        product_id,\n        UPPER(RTRIM(warehouse)) AS wh,\n        qty_on_hand\n    FROM {{ source('legacy', 'inventory') }}\n)\nSELECT\n    product_id,\n    CAST(COALESCE(SUM(CASE WHEN wh = 'A' THEN qty_on_hand END), 0) AS INTEGER) AS wh_a,\n    CAST(COALESCE(SUM(CASE WHEN wh = 'B' THEN qty_on_hand END), 0) AS INTEGER) AS wh_b\nFROM base\nGROUP BY product_id",
  "history": [
   {
    "attempt": 1,
-   "sql": "WITH inv AS (\n    SELECT\n        product_id,\n        RTRIM(UPPER(warehouse)) AS wh,\n        qty_on_hand\n    FROM {{ source('legacy', 'inventory') }}\n)\nSELECT\n    product_id,\n    CAST(COALESCE(SUM(CASE WHEN wh = 'A' THEN qty_on_hand END), 0) AS INTEGER) AS wh_a,\n    CAST(COALESCE(SUM(CASE WHEN wh = 'B' THEN qty_on_hand END), 0) AS INTEGER) AS wh_b\nFROM inv\nGROUP BY product_id",
+   "sql": "WITH base AS (\n    SELECT\n        product_id,\n        UPPER(RTRIM(warehouse)) AS wh,\n        qty_on_hand\n    FROM {{ source('legacy', 'inventory') }}\n)\nSELECT\n    product_id,\n    CAST(COALESCE(SUM(CASE WHEN wh = 'A' THEN qty_on_hand END), 0) AS INTEGER) AS wh_a,\n    CAST(COALESCE(SUM(CASE WHEN wh = 'B' THEN qty_on_hand END), 0) AS INTEGER) AS wh_b\nFROM base\nGROUP BY product_id",
    "status": "match",
    "detail": {
-    "equivalent": true,
-    "legacy_rows": 10,
-    "new_rows": 10,
-    "issues": []
+    "datasets": {
+     "base": 10,
+     "seed_101": 10,
+     "seed_202": 10,
+     "edge": 4
+    }
    }
   }
  ],
- "explanation": "This procedure builds a summary table with one row per product, showing how much stock is on hand in warehouse A and in warehouse B. Products with no stock in either warehouse show 0 for that warehouse. The model reproduces this by summing quantities per product and warehouse, using case-insensitive and trailing-space-insensitive matching on the warehouse code, as SQL Server does.",
+ "explanation": "This procedure builds a summary table with one row per product, showing how much stock is on hand in warehouses A and B as separate columns. Products with no stock in a warehouse show 0 there instead of blank. The model reproduces that by summing quantities per product and warehouse code, matching codes case-insensitively as SQL Server does by default.",
  "llm_calls": [
   {
    "model": "claude-haiku-5-5",
    "input_tokens": 1509,
-   "output_tokens": 1162,
+   "output_tokens": 1156,
    "cache_write_tokens": 0,
    "cache_read_tokens": 0,
-   "cost_usd": 0.000732
+   "cost_usd": 0.000729
   }
  ],
- "cost_usd": 0.000732
+ "cost_usd": 0.000729
 }

@@ -7,31 +7,39 @@
  ],
  "status": "verified",
  "attempts": 1,
- "rows": 10,
- "model_sql": "select\n    customer_id,\n    cast(count(*) as integer) as total_orders,\n    cast(sum(case when upper(rtrim(status)) = 'CANCELLED' then 1 else 0 end) as integer) as cancelled_orders,\n    cast(\n        (sum(case when upper(rtrim(status)) = 'CANCELLED' then 1 else 0 end) * 100) // count(*)\n        as integer\n    ) as cancel_pct\nfrom {{ source('legacy', 'orders') }}\ngroup by customer_id",
+ "rows": 36,
+ "datasets": {
+  "base": 10,
+  "seed_101": 10,
+  "seed_202": 9,
+  "edge": 7
+ },
+ "model_sql": "with base as (\n    select\n        customer_id,\n        case when rtrim(lower(status)) = 'cancelled' then 1 else 0 end as is_cancelled\n    from {{ source('legacy', 'orders') }}\n)\nselect\n    customer_id,\n    count(*) as total_orders,\n    cast(sum(is_cancelled) as integer) as cancelled_orders,\n    cast(sum(is_cancelled) * 100 // count(*) as integer) as cancel_pct\nfrom base\ngroup by customer_id",
  "history": [
   {
    "attempt": 1,
-   "sql": "select\n    customer_id,\n    cast(count(*) as integer) as total_orders,\n    cast(sum(case when upper(rtrim(status)) = 'CANCELLED' then 1 else 0 end) as integer) as cancelled_orders,\n    cast(\n        (sum(case when upper(rtrim(status)) = 'CANCELLED' then 1 else 0 end) * 100) // count(*)\n        as integer\n    ) as cancel_pct\nfrom {{ source('legacy', 'orders') }}\ngroup by customer_id",
+   "sql": "with base as (\n    select\n        customer_id,\n        case when rtrim(lower(status)) = 'cancelled' then 1 else 0 end as is_cancelled\n    from {{ source('legacy', 'orders') }}\n)\nselect\n    customer_id,\n    count(*) as total_orders,\n    cast(sum(is_cancelled) as integer) as cancelled_orders,\n    cast(sum(is_cancelled) * 100 // count(*) as integer) as cancel_pct\nfrom base\ngroup by customer_id",
    "status": "match",
    "detail": {
-    "equivalent": true,
-    "legacy_rows": 10,
-    "new_rows": 10,
-    "issues": []
+    "datasets": {
+     "base": 10,
+     "seed_101": 10,
+     "seed_202": 9,
+     "edge": 7
+    }
    }
   }
  ],
- "explanation": "This procedure summarizes orders for each customer: how many orders they placed, how many were cancelled, and what percentage of their orders were cancelled. It rebuilds the result table from scratch on each run. The percentage is computed with integer arithmetic, so it is rounded down to a whole number.",
+ "explanation": "For each customer, this procedure counts all of their orders and how many of those have status 'cancelled'. It then computes the cancellation rate as a whole-number percentage, truncated the way SQL Server integer division does. The result is written to a summary table that is rebuilt on every run.",
  "llm_calls": [
   {
    "model": "claude-haiku-5-5",
    "input_tokens": 1565,
-   "output_tokens": 990,
+   "output_tokens": 1056,
    "cache_write_tokens": 0,
    "cache_read_tokens": 0,
-   "cost_usd": 0.000651
+   "cost_usd": 0.000684
   }
  ],
- "cost_usd": 0.000651
+ "cost_usd": 0.000684
 }

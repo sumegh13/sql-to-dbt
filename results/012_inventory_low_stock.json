@@ -8,31 +8,39 @@
  ],
  "status": "verified",
  "attempts": 1,
- "rows": 10,
- "model_sql": "SELECT\n    p.product_id,\n    p.product_name,\n    SUM(inv.qty_on_hand) AS total_qty,\n    CASE WHEN SUM(inv.qty_on_hand) < 20 THEN 1 ELSE 0 END AS low_stock\nFROM {{ source('legacy', 'products') }} AS p\nLEFT JOIN {{ source('legacy', 'inventory') }} AS inv\n    ON inv.product_id = p.product_id\nGROUP BY p.product_id, p.product_name",
+ "rows": 35,
+ "datasets": {
+  "base": 10,
+  "seed_101": 10,
+  "seed_202": 10,
+  "edge": 5
+ },
+ "model_sql": "SELECT\n    p.product_id,\n    p.product_name,\n    CAST(SUM(inv.qty_on_hand) AS INTEGER) AS total_qty,\n    CASE WHEN SUM(inv.qty_on_hand) < 20 THEN 1 ELSE 0 END AS low_stock\nFROM {{ source('legacy', 'products') }} AS p\nLEFT JOIN {{ source('legacy', 'inventory') }} AS inv\n    ON inv.product_id = p.product_id\nGROUP BY p.product_id, p.product_name",
  "history": [
   {
    "attempt": 1,
-   "sql": "SELECT\n    p.product_id,\n    p.product_name,\n    SUM(inv.qty_on_hand) AS total_qty,\n    CASE WHEN SUM(inv.qty_on_hand) < 20 THEN 1 ELSE 0 END AS low_stock\nFROM {{ source('legacy', 'products') }} AS p\nLEFT JOIN {{ source('legacy', 'inventory') }} AS inv\n    ON inv.product_id = p.product_id\nGROUP BY p.product_id, p.product_name",
+   "sql": "SELECT\n    p.product_id,\n    p.product_name,\n    CAST(SUM(inv.qty_on_hand) AS INTEGER) AS total_qty,\n    CASE WHEN SUM(inv.qty_on_hand) < 20 THEN 1 ELSE 0 END AS low_stock\nFROM {{ source('legacy', 'products') }} AS p\nLEFT JOIN {{ source('legacy', 'inventory') }} AS inv\n    ON inv.product_id = p.product_id\nGROUP BY p.product_id, p.product_name",
    "status": "match",
    "detail": {
-    "equivalent": true,
-    "legacy_rows": 10,
-    "new_rows": 10,
-    "issues": []
+    "datasets": {
+     "base": 10,
+     "seed_101": 10,
+     "seed_202": 10,
+     "edge": 5
+    }
    }
   }
  ],
- "explanation": "This procedure builds a low-stock report with one row per product, showing the product's total quantity on hand across all warehouses. It flags a product with 1 if its total is below 20 and 0 otherwise. Products with no inventory rows still appear, with a null total and a flag of 0.",
+ "explanation": "This procedure builds a stock report with one row per product: its total quantity on hand across all warehouses and a flag set to 1 when that total is below 20. Products with no inventory records still appear, with a NULL total and a flag of 0. The result replaces any previous version of the report table.",
  "llm_calls": [
   {
    "model": "claude-haiku-5-5",
    "input_tokens": 1537,
-   "output_tokens": 1018,
+   "output_tokens": 1277,
    "cache_write_tokens": 0,
    "cache_read_tokens": 0,
-   "cost_usd": 0.000663
+   "cost_usd": 0.000792
   }
  ],
- "cost_usd": 0.000663
+ "cost_usd": 0.000792
 }

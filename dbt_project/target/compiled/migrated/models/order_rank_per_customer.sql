@@ -4,7 +4,7 @@ SELECT
     amount,
     ROW_NUMBER() OVER (
         PARTITION BY customer_id
-        ORDER BY amount DESC NULLS LAST, order_id ASC NULLS FIRST
+        ORDER BY amount DESC NULLS LAST, order_id ASC
     ) AS rn,
     RANK() OVER (
         PARTITION BY customer_id

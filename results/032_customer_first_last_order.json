@@ -9,31 +9,39 @@
  ],
  "status": "verified",
  "attempts": 1,
- "rows": 10,
- "model_sql": "SELECT DISTINCT\n  customer_id,\n  FIRST_VALUE(order_id) OVER (\n    PARTITION BY customer_id\n    ORDER BY order_date ASC NULLS FIRST, order_id ASC NULLS FIRST\n    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING\n  ) AS first_order,\n  LAST_VALUE(order_id) OVER (\n    PARTITION BY customer_id\n    ORDER BY order_date ASC NULLS FIRST, order_id ASC NULLS FIRST\n    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING\n  ) AS last_order\nFROM {{ source('legacy', 'orders') }}",
+ "rows": 36,
+ "datasets": {
+  "base": 10,
+  "seed_101": 10,
+  "seed_202": 9,
+  "edge": 7
+ },
+ "model_sql": "WITH ranked AS (\n    SELECT\n        customer_id,\n        FIRST_VALUE(order_id) OVER (\n            PARTITION BY customer_id\n            ORDER BY order_date NULLS FIRST, order_id NULLS FIRST\n            ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING\n        ) AS first_order,\n        LAST_VALUE(order_id) OVER (\n            PARTITION BY customer_id\n            ORDER BY order_date NULLS FIRST, order_id NULLS FIRST\n            ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING\n        ) AS last_order\n    FROM {{ source('legacy', 'orders') }}\n)\nSELECT DISTINCT\n    customer_id,\n    first_order,\n    last_order\nFROM ranked",
  "history": [
   {
    "attempt": 1,
-   "sql": "SELECT DISTINCT\n  customer_id,\n  FIRST_VALUE(order_id) OVER (\n    PARTITION BY customer_id\n    ORDER BY order_date ASC NULLS FIRST, order_id ASC NULLS FIRST\n    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING\n  ) AS first_order,\n  LAST_VALUE(order_id) OVER (\n    PARTITION BY customer_id\n    ORDER BY order_date ASC NULLS FIRST, order_id ASC NULLS FIRST\n    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING\n  ) AS last_order\nFROM {{ source('legacy', 'orders') }}",
+   "sql": "WITH ranked AS (\n    SELECT\n        customer_id,\n        FIRST_VALUE(order_id) OVER (\n            PARTITION BY customer_id\n            ORDER BY order_date NULLS FIRST, order_id NULLS FIRST\n            ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING\n        ) AS first_order,\n        LAST_VALUE(order_id) OVER (\n            PARTITION BY customer_id\n            ORDER BY order_date NULLS FIRST, order_id NULLS FIRST\n            ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING\n        ) AS last_order\n    FROM {{ source('legacy', 'orders') }}\n)\nSELECT DISTINCT\n    customer_id,\n    first_order,\n    last_order\nFROM ranked",
    "status": "match",
    "detail": {
-    "equivalent": true,
-    "legacy_rows": 10,
-    "new_rows": 10,
-    "issues": []
+    "datasets": {
+     "base": 10,
+     "seed_101": 10,
+     "seed_202": 9,
+     "edge": 7
+    }
    }
   }
  ],
- "explanation": "For each customer, this procedure finds the order_id of their earliest order and of their latest order, using order_date and then order_id to break ties. It writes one row per customer with those two order IDs. The output is rebuilt from scratch on each run.",
+ "explanation": "This procedure builds a summary table with one row per customer, showing the ID of their earliest order and the ID of their most recent order. Orders are ranked by order date, with order ID as a tie-breaker, so the first and last orders are well defined even when several orders share a date. The rebuilt table holds one row for each distinct customer ID found in the orders table.",
  "llm_calls": [
   {
    "model": "claude-haiku-5-5",
    "input_tokens": 1605,
-   "output_tokens": 1245,
+   "output_tokens": 1310,
    "cache_write_tokens": 0,
    "cache_read_tokens": 0,
-   "cost_usd": 0.000783
+   "cost_usd": 0.000816
   }
  ],
- "cost_usd": 0.000783
+ "cost_usd": 0.000816
 }

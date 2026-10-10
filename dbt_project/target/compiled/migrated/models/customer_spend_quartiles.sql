@@ -3,13 +3,11 @@ WITH s AS (
         customer_id,
         SUM(amount) AS spend
     FROM "warehouse"."legacy"."orders"
-    WHERE RTRIM(UPPER(status)) NOT IN ('CANCELLED', 'RETURNED')
+    WHERE rtrim(lower(status)) NOT IN ('cancelled', 'returned')
     GROUP BY customer_id
 )
 SELECT
     customer_id,
     spend,
-    NTILE(4) OVER (
-        ORDER BY spend DESC NULLS LAST, customer_id ASC NULLS FIRST
-    ) AS quartile
+    NTILE(4) OVER (ORDER BY spend DESC NULLS LAST, customer_id ASC NULLS FIRST) AS quartile
 FROM s

@@ -1,7 +1,7 @@
 
   
   create view "warehouse"."main"."product_return_rate__dbt_tmp" as (
-    WITH joined AS (
+    WITH line_status AS (
     SELECT
         p.product_id,
         p.product_name,
@@ -15,9 +15,9 @@
 SELECT
     product_id,
     product_name,
-    COUNT(*) AS line_count,
-    SUM(is_returned) AS returned_lines,
+    CAST(COUNT(*) AS INTEGER) AS line_count,
+    CAST(SUM(is_returned) AS INTEGER) AS returned_lines,
     CAST(SUM(is_returned) AS DOUBLE) / COUNT(*) AS return_rate
-FROM joined
+FROM line_status
 GROUP BY product_id, product_name
   );

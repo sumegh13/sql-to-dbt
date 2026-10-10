@@ -6,70 +6,40 @@
   "percentile_cont"
  ],
  "status": "verified",
- "attempts": 2,
- "rows": 5,
- "model_sql": "SELECT\n    MIN(c.region) AS region,\n    QUANTILE_CONT(CAST(o.amount AS DOUBLE), 0.5) AS median_amount\nFROM {{ source('legacy', 'orders') }} o\nJOIN {{ source('legacy', 'customers') }} c\n    ON c.customer_id = o.customer_id\nGROUP BY UPPER(RTRIM(c.region))",
+ "attempts": 1,
+ "rows": 21,
+ "datasets": {
+  "base": 5,
+  "seed_101": 5,
+  "seed_202": 5,
+  "edge": 6
+ },
+ "model_sql": "{{ config(materialized='table') }}\n\nSELECT\n    MIN(c.region) AS region,\n    quantile_cont(o.amount::DOUBLE, 0.5) AS median_amount\nFROM {{ source('legacy', 'orders') }} o\nJOIN {{ source('legacy', 'customers') }} c\n    ON c.customer_id = o.customer_id\nGROUP BY LOWER(RTRIM(c.region))",
  "history": [
   {
    "attempt": 1,
-   "sql": "SELECT\n    MIN(c.region) AS region,\n    CAST(QUANTILE_CONT(CAST(o.amount AS DOUBLE), 0.5) AS DECIMAL(18,2)) AS median_amount\nFROM {{ source('legacy', 'orders') }} o\nJOIN {{ source('legacy', 'customers') }} c\n    ON c.customer_id = o.customer_id\nGROUP BY UPPER(RTRIM(c.region))",
-   "status": "diff",
-   "detail": {
-    "equivalent": false,
-    "legacy_rows": 5,
-    "new_rows": 5,
-    "issues": [
-     {
-      "in_legacy_not_new": [
-       [
-        "West",
-        99.875
-       ]
-      ],
-      "count": 1
-     },
-     {
-      "in_new_not_legacy": [
-       [
-        "West",
-        99.88
-       ]
-      ],
-      "count": 1
-     }
-    ]
-   }
-  },
-  {
-   "attempt": 2,
-   "sql": "SELECT\n    MIN(c.region) AS region,\n    QUANTILE_CONT(CAST(o.amount AS DOUBLE), 0.5) AS median_amount\nFROM {{ source('legacy', 'orders') }} o\nJOIN {{ source('legacy', 'customers') }} c\n    ON c.customer_id = o.customer_id\nGROUP BY UPPER(RTRIM(c.region))",
+   "sql": "{{ config(materialized='table') }}\n\nSELECT\n    MIN(c.region) AS region,\n    quantile_cont(o.amount::DOUBLE, 0.5) AS median_amount\nFROM {{ source('legacy', 'orders') }} o\nJOIN {{ source('legacy', 'customers') }} c\n    ON c.customer_id = o.customer_id\nGROUP BY LOWER(RTRIM(c.region))",
    "status": "match",
    "detail": {
-    "equivalent": true,
-    "legacy_rows": 5,
-    "new_rows": 5,
-    "issues": []
+    "datasets": {
+     "base": 5,
+     "seed_101": 5,
+     "seed_202": 5,
+     "edge": 6
+    }
    }
   }
  ],
- "explanation": "This procedure calculates the median order amount for each customer region. It joins every order to its customer, groups the orders by region, and stores one median value per region in a table. Regions are matched without regard to letter case or trailing spaces, as SQL Server's default collation does.",
+ "explanation": "For each customer region, this procedure takes every order placed by customers in that region and computes the median order amount (the 50th percentile, interpolated when the count is even). It saves one row per region to a table, replacing any previous version. Region matching is case-insensitive and ignores trailing spaces, as SQL Server does by default.",
  "llm_calls": [
   {
    "model": "claude-haiku-5-5",
    "input_tokens": 1497,
-   "output_tokens": 1867,
+   "output_tokens": 1907,
    "cache_write_tokens": 0,
    "cache_read_tokens": 0,
-   "cost_usd": 0.001083
-  },
-  {
-   "model": "claude-haiku-5-5",
-   "input_tokens": 1857,
-   "output_tokens": 2047,
-   "cache_write_tokens": 0,
-   "cache_read_tokens": 0,
-   "cost_usd": 0.001209
+   "cost_usd": 0.001103
   }
  ],
- "cost_usd": 0.002292
+ "cost_usd": 0.001103
 }

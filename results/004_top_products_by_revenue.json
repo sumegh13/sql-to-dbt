@@ -7,31 +7,39 @@
  ],
  "status": "verified",
  "attempts": 1,
- "rows": 5,
- "model_sql": "WITH product_revenue AS (\n    SELECT\n        p.product_id,\n        p.product_name,\n        CAST(SUM(CAST(i.qty AS DECIMAL(18,2)) * i.unit_price) AS DECIMAL(38,2)) AS revenue\n    FROM {{ source('legacy', 'order_items') }} i\n    JOIN {{ source('legacy', 'products') }} p\n        ON p.product_id = i.product_id\n    GROUP BY p.product_id, p.product_name\n)\nSELECT\n    product_id,\n    product_name,\n    revenue\nFROM product_revenue\nORDER BY revenue DESC, product_id\nLIMIT 5",
+ "rows": 19,
+ "datasets": {
+  "base": 5,
+  "seed_101": 5,
+  "seed_202": 5,
+  "edge": 4
+ },
+ "model_sql": "with revenue_by_product as (\n    select\n        p.product_id,\n        p.product_name,\n        cast(sum(cast(i.qty * i.unit_price as decimal(38,2))) as decimal(38,2)) as revenue\n    from {{ source('legacy', 'order_items') }} i\n    join {{ source('legacy', 'products') }} p\n        on p.product_id = i.product_id\n    group by p.product_id, p.product_name\n)\nselect\n    product_id,\n    product_name,\n    revenue\nfrom revenue_by_product\norder by revenue desc nulls last, product_id\nlimit 5",
  "history": [
   {
    "attempt": 1,
-   "sql": "WITH product_revenue AS (\n    SELECT\n        p.product_id,\n        p.product_name,\n        CAST(SUM(CAST(i.qty AS DECIMAL(18,2)) * i.unit_price) AS DECIMAL(38,2)) AS revenue\n    FROM {{ source('legacy', 'order_items') }} i\n    JOIN {{ source('legacy', 'products') }} p\n        ON p.product_id = i.product_id\n    GROUP BY p.product_id, p.product_name\n)\nSELECT\n    product_id,\n    product_name,\n    revenue\nFROM product_revenue\nORDER BY revenue DESC, product_id\nLIMIT 5",
+   "sql": "with revenue_by_product as (\n    select\n        p.product_id,\n        p.product_name,\n        cast(sum(cast(i.qty * i.unit_price as decimal(38,2))) as decimal(38,2)) as revenue\n    from {{ source('legacy', 'order_items') }} i\n    join {{ source('legacy', 'products') }} p\n        on p.product_id = i.product_id\n    group by p.product_id, p.product_name\n)\nselect\n    product_id,\n    product_name,\n    revenue\nfrom revenue_by_product\norder by revenue desc nulls last, product_id\nlimit 5",
    "status": "match",
    "detail": {
-    "equivalent": true,
-    "legacy_rows": 5,
-    "new_rows": 5,
-    "issues": []
+    "datasets": {
+     "base": 5,
+     "seed_101": 5,
+     "seed_202": 5,
+     "edge": 4
+    }
    }
   }
  ],
- "explanation": "This procedure ranks products by total sales value, calculated as quantity times unit price across all order line items. It keeps the five products with the highest revenue, breaking any ties by product ID, and saves them to a table. The procedure rebuilds that table from scratch on each run.",
+ "explanation": "This procedure finds the five best-selling products by revenue. Revenue is the sum of quantity times unit price across all order line items, and each product's name is taken from the products table. Ties on revenue are broken by product ID, and the result is saved as a table that is rebuilt on each run.",
  "llm_calls": [
   {
    "model": "claude-haiku-5-5",
    "input_tokens": 1528,
-   "output_tokens": 1054,
+   "output_tokens": 1534,
    "cache_write_tokens": 0,
    "cache_read_tokens": 0,
-   "cost_usd": 0.00068
+   "cost_usd": 0.00092
   }
  ],
- "cost_usd": 0.00068
+ "cost_usd": 0.00092
 }

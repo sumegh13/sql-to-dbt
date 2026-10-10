@@ -8,31 +8,39 @@
  ],
  "status": "verified",
  "attempts": 1,
- "rows": 70,
- "model_sql": "WITH base AS (\n    SELECT\n        item_id,\n        order_id,\n        qty,\n        SUM(qty) OVER (\n            PARTITION BY order_id\n            ORDER BY item_id\n            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW\n        ) AS run_sum,\n        COUNT(*) OVER (\n            PARTITION BY order_id\n            ORDER BY item_id\n            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW\n        ) - COUNT(qty) OVER (\n            PARTITION BY order_id\n            ORDER BY item_id\n            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW\n        ) AS null_qty_so_far\n    FROM {{ source('legacy', 'order_items') }}\n)\nSELECT\n    item_id,\n    order_id,\n    qty,\n    CAST(CASE WHEN null_qty_so_far > 0 THEN NULL ELSE run_sum END AS INTEGER) AS running_qty,\n    CAST(\n        CASE\n            WHEN null_qty_so_far > 0 THEN 0\n            WHEN run_sum >= 10 THEN 10\n            WHEN run_sum >= 5 THEN 5\n            ELSE 0\n        END\n    AS INTEGER) AS discount_pct\nFROM base",
+ "rows": 218,
+ "datasets": {
+  "base": 70,
+  "seed_101": 69,
+  "seed_202": 61,
+  "edge": 18
+ },
+ "model_sql": "WITH base AS (\n    SELECT\n        item_id,\n        order_id,\n        qty,\n        SUM(CASE WHEN qty IS NULL THEN 1 ELSE 0 END) OVER (\n            PARTITION BY order_id\n            ORDER BY item_id\n            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW\n        ) AS null_qty_seen,\n        SUM(qty) OVER (\n            PARTITION BY order_id\n            ORDER BY item_id\n            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW\n        ) AS raw_running_qty\n    FROM {{ source('legacy', 'order_items') }}\n),\ncalc AS (\n    SELECT\n        item_id,\n        order_id,\n        qty,\n        CASE WHEN null_qty_seen > 0 THEN NULL ELSE CAST(raw_running_qty AS INTEGER) END AS running_qty\n    FROM base\n)\nSELECT\n    item_id,\n    order_id,\n    CAST(qty AS INTEGER) AS qty,\n    running_qty,\n    CAST(\n        CASE\n            WHEN running_qty >= 10 THEN 10\n            WHEN running_qty >= 5 THEN 5\n            ELSE 0\n        END\n    AS INTEGER) AS discount_pct\nFROM calc",
  "history": [
   {
    "attempt": 1,
-   "sql": "WITH base AS (\n    SELECT\n        item_id,\n        order_id,\n        qty,\n        SUM(qty) OVER (\n            PARTITION BY order_id\n            ORDER BY item_id\n            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW\n        ) AS run_sum,\n        COUNT(*) OVER (\n            PARTITION BY order_id\n            ORDER BY item_id\n            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW\n        ) - COUNT(qty) OVER (\n            PARTITION BY order_id\n            ORDER BY item_id\n            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW\n        ) AS null_qty_so_far\n    FROM {{ source('legacy', 'order_items') }}\n)\nSELECT\n    item_id,\n    order_id,\n    qty,\n    CAST(CASE WHEN null_qty_so_far > 0 THEN NULL ELSE run_sum END AS INTEGER) AS running_qty,\n    CAST(\n        CASE\n            WHEN null_qty_so_far > 0 THEN 0\n            WHEN run_sum >= 10 THEN 10\n            WHEN run_sum >= 5 THEN 5\n            ELSE 0\n        END\n    AS INTEGER) AS discount_pct\nFROM base",
+   "sql": "WITH base AS (\n    SELECT\n        item_id,\n        order_id,\n        qty,\n        SUM(CASE WHEN qty IS NULL THEN 1 ELSE 0 END) OVER (\n            PARTITION BY order_id\n            ORDER BY item_id\n            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW\n        ) AS null_qty_seen,\n        SUM(qty) OVER (\n            PARTITION BY order_id\n            ORDER BY item_id\n            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW\n        ) AS raw_running_qty\n    FROM {{ source('legacy', 'order_items') }}\n),\ncalc AS (\n    SELECT\n        item_id,\n        order_id,\n        qty,\n        CASE WHEN null_qty_seen > 0 THEN NULL ELSE CAST(raw_running_qty AS INTEGER) END AS running_qty\n    FROM base\n)\nSELECT\n    item_id,\n    order_id,\n    CAST(qty AS INTEGER) AS qty,\n    running_qty,\n    CAST(\n        CASE\n            WHEN running_qty >= 10 THEN 10\n            WHEN running_qty >= 5 THEN 5\n            ELSE 0\n        END\n    AS INTEGER) AS discount_pct\nFROM calc",
    "status": "match",
    "detail": {
-    "equivalent": true,
-    "legacy_rows": 70,
-    "new_rows": 70,
-    "issues": []
+    "datasets": {
+     "base": 70,
+     "seed_101": 69,
+     "seed_202": 61,
+     "edge": 18
+    }
    }
   }
  ],
- "explanation": "This procedure rebuilds a table that lists every order line with a running quantity total for its order, processed in order_id and item_id sequence. The running total restarts at each new order, and each line gets a volume discount of 10% once the running total reaches 10, 5% at 5 or more, and 0% otherwise. The model below reproduces this with window functions rather than a cursor. It also matches the procedure's NULL behaviour: a NULL quantity makes all later running totals for that order NULL and their discount 0.",
+ "explanation": "For each order, this procedure walks its line items in item order and keeps a running total of quantities. Each line gets a volume discount of 10% once the running total reaches 10 units, 5% once it reaches 5, and 0% otherwise. The result is one row per order line with its running total and discount, replacing the old cursor loop with a windowed query.",
  "llm_calls": [
   {
    "model": "claude-haiku-5-5",
    "input_tokens": 1794,
-   "output_tokens": 2046,
+   "output_tokens": 1662,
    "cache_write_tokens": 0,
    "cache_read_tokens": 0,
-   "cost_usd": 0.001202
+   "cost_usd": 0.00101
   }
  ],
- "cost_usd": 0.001202
+ "cost_usd": 0.00101
 }

@@ -4,7 +4,7 @@
     WITH aged AS (
     SELECT
         order_id,
-        CAST(DATE '2025-12-31' - order_date AS INTEGER) AS age_days
+        date_diff('day', order_date, DATE '2025-12-31') AS age_days
     FROM "warehouse"."legacy"."orders"
 )
 SELECT

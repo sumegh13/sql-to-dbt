@@ -7,31 +7,39 @@
  ],
  "status": "verified",
  "attempts": 1,
- "rows": 34,
- "model_sql": "select\n    o.order_id,\n    o.amount,\n    coalesce(sum(p.paid_amount), 0) as paid,\n    case\n        when coalesce(sum(p.paid_amount), 0) >= o.amount then 'paid'\n        when coalesce(sum(p.paid_amount), 0) > 0 then 'partial'\n        else 'unpaid'\n    end as payment_status\nfrom {{ source('legacy', 'orders') }} o\nleft join {{ source('legacy', 'payments') }} p\n    on p.order_id = o.order_id\ngroup by o.order_id, o.amount",
+ "rows": 117,
+ "datasets": {
+  "base": 34,
+  "seed_101": 34,
+  "seed_202": 34,
+  "edge": 15
+ },
+ "model_sql": "SELECT\n    o.order_id,\n    o.amount,\n    COALESCE(SUM(p.paid_amount), 0) AS paid,\n    CASE\n        WHEN COALESCE(SUM(p.paid_amount), 0) >= o.amount THEN 'paid'\n        WHEN COALESCE(SUM(p.paid_amount), 0) > 0 THEN 'partial'\n        ELSE 'unpaid'\n    END AS payment_status\nFROM {{ source('legacy', 'orders') }} o\nLEFT JOIN {{ source('legacy', 'payments') }} p\n    ON p.order_id = o.order_id\nGROUP BY o.order_id, o.amount",
  "history": [
   {
    "attempt": 1,
-   "sql": "select\n    o.order_id,\n    o.amount,\n    coalesce(sum(p.paid_amount), 0) as paid,\n    case\n        when coalesce(sum(p.paid_amount), 0) >= o.amount then 'paid'\n        when coalesce(sum(p.paid_amount), 0) > 0 then 'partial'\n        else 'unpaid'\n    end as payment_status\nfrom {{ source('legacy', 'orders') }} o\nleft join {{ source('legacy', 'payments') }} p\n    on p.order_id = o.order_id\ngroup by o.order_id, o.amount",
+   "sql": "SELECT\n    o.order_id,\n    o.amount,\n    COALESCE(SUM(p.paid_amount), 0) AS paid,\n    CASE\n        WHEN COALESCE(SUM(p.paid_amount), 0) >= o.amount THEN 'paid'\n        WHEN COALESCE(SUM(p.paid_amount), 0) > 0 THEN 'partial'\n        ELSE 'unpaid'\n    END AS payment_status\nFROM {{ source('legacy', 'orders') }} o\nLEFT JOIN {{ source('legacy', 'payments') }} p\n    ON p.order_id = o.order_id\nGROUP BY o.order_id, o.amount",
    "status": "match",
    "detail": {
-    "equivalent": true,
-    "legacy_rows": 34,
-    "new_rows": 34,
-    "issues": []
+    "datasets": {
+     "base": 34,
+     "seed_101": 34,
+     "seed_202": 34,
+     "edge": 15
+    }
    }
   }
  ],
- "explanation": "This procedure builds a payment status report with one row per order. For each order it adds up all payments recorded against it and compares that total with the order amount. The status is 'paid' when the total covers the order, 'partial' when some money has been received but not enough, and 'unpaid' when nothing has been received.",
+ "explanation": "This procedure builds a payment status report with one row per order. For each order, it adds up all payments recorded against it, treating orders with no payments as zero paid. It then labels each order \"paid\" if payments cover the order amount, \"partial\" if some money has been paid but not enough, and \"unpaid\" otherwise.",
  "llm_calls": [
   {
    "model": "claude-haiku-5-5",
    "input_tokens": 1579,
-   "output_tokens": 963,
+   "output_tokens": 988,
    "cache_write_tokens": 0,
    "cache_read_tokens": 0,
-   "cost_usd": 0.000639
+   "cost_usd": 0.000652
   }
  ],
- "cost_usd": 0.000639
+ "cost_usd": 0.000652
 }

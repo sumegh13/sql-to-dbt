@@ -6,32 +6,83 @@
   "try_cast"
  ],
  "status": "verified",
- "attempts": 1,
- "rows": 12,
- "model_sql": "WITH src AS (\n    SELECT\n        customer_id,\n        legacy_code,\n        TRIM(legacy_code) AS t\n    FROM {{ source('legacy', 'customers') }}\n),\nparsed AS (\n    SELECT\n        customer_id,\n        legacy_code,\n        CASE\n            WHEN regexp_matches(t, '^[+-]?[0-9]+$') THEN TRY_CAST(t AS BIGINT)\n        END AS n\n    FROM src\n)\nSELECT\n    customer_id,\n    legacy_code,\n    CASE\n        WHEN n BETWEEN -2147483648 AND 2147483647 THEN CAST(n AS INTEGER)\n    END AS legacy_code_num,\n    CASE\n        WHEN n IS NULL OR n NOT BETWEEN -2147483648 AND 2147483647 THEN 1\n        ELSE 0\n    END AS invalid\nFROM parsed",
+ "attempts": 2,
+ "rows": 43,
+ "datasets": {
+  "base": 12,
+  "seed_101": 12,
+  "seed_202": 12,
+  "edge": 7
+ },
+ "model_sql": "WITH src AS (\n    SELECT\n        customer_id,\n        legacy_code,\n        trim(legacy_code, ' ') AS code_trimmed\n    FROM {{ source('legacy', 'customers') }}\n),\nparsed AS (\n    SELECT\n        customer_id,\n        legacy_code,\n        code_trimmed,\n        CASE\n            WHEN code_trimmed = '' THEN 0\n            WHEN regexp_matches(code_trimmed, '^[+-]?[0-9]+$') THEN TRY_CAST(code_trimmed AS INTEGER)\n            ELSE NULL\n        END AS legacy_code_num\n    FROM src\n)\nSELECT\n    customer_id,\n    legacy_code,\n    legacy_code_num,\n    CASE WHEN legacy_code_num IS NULL THEN 1 ELSE 0 END AS invalid\nFROM parsed",
  "history": [
   {
    "attempt": 1,
-   "sql": "WITH src AS (\n    SELECT\n        customer_id,\n        legacy_code,\n        TRIM(legacy_code) AS t\n    FROM {{ source('legacy', 'customers') }}\n),\nparsed AS (\n    SELECT\n        customer_id,\n        legacy_code,\n        CASE\n            WHEN regexp_matches(t, '^[+-]?[0-9]+$') THEN TRY_CAST(t AS BIGINT)\n        END AS n\n    FROM src\n)\nSELECT\n    customer_id,\n    legacy_code,\n    CASE\n        WHEN n BETWEEN -2147483648 AND 2147483647 THEN CAST(n AS INTEGER)\n    END AS legacy_code_num,\n    CASE\n        WHEN n IS NULL OR n NOT BETWEEN -2147483648 AND 2147483647 THEN 1\n        ELSE 0\n    END AS invalid\nFROM parsed",
+   "sql": "WITH src AS (\n    SELECT\n        customer_id,\n        legacy_code,\n        trim(legacy_code) AS code_trimmed\n    FROM {{ source('legacy', 'customers') }}\n),\nchecked AS (\n    SELECT\n        customer_id,\n        legacy_code,\n        code_trimmed,\n        regexp_matches(code_trimmed, '^[+-]?[0-9]+$') AS is_int_text\n    FROM src\n)\nSELECT\n    customer_id,\n    legacy_code,\n    CASE WHEN is_int_text THEN TRY_CAST(code_trimmed AS INTEGER) END AS legacy_code_num,\n    CASE WHEN is_int_text AND TRY_CAST(code_trimmed AS INTEGER) IS NOT NULL THEN 0 ELSE 1 END AS invalid\nFROM checked",
+   "status": "diff",
+   "detail": {
+    "dataset": "edge",
+    "equivalent": false,
+    "legacy_rows": 7,
+    "new_rows": 7,
+    "issues": [
+     {
+      "in_legacy_not_new": [
+       [
+        1,
+        "",
+        0,
+        0
+       ]
+      ],
+      "count": 1
+     },
+     {
+      "in_new_not_legacy": [
+       [
+        1,
+        "",
+        null,
+        1
+       ]
+      ],
+      "count": 1
+     }
+    ]
+   }
+  },
+  {
+   "attempt": 2,
+   "sql": "WITH src AS (\n    SELECT\n        customer_id,\n        legacy_code,\n        trim(legacy_code, ' ') AS code_trimmed\n    FROM {{ source('legacy', 'customers') }}\n),\nparsed AS (\n    SELECT\n        customer_id,\n        legacy_code,\n        code_trimmed,\n        CASE\n            WHEN code_trimmed = '' THEN 0\n            WHEN regexp_matches(code_trimmed, '^[+-]?[0-9]+$') THEN TRY_CAST(code_trimmed AS INTEGER)\n            ELSE NULL\n        END AS legacy_code_num\n    FROM src\n)\nSELECT\n    customer_id,\n    legacy_code,\n    legacy_code_num,\n    CASE WHEN legacy_code_num IS NULL THEN 1 ELSE 0 END AS invalid\nFROM parsed",
    "status": "match",
    "detail": {
-    "equivalent": true,
-    "legacy_rows": 12,
-    "new_rows": 12,
-    "issues": []
+    "datasets": {
+     "base": 12,
+     "seed_101": 12,
+     "seed_202": 12,
+     "edge": 7
+    }
    }
   }
  ],
- "explanation": "This procedure rebuilds a table that lists every customer's legacy code alongside a numeric version of it. It tries to convert each code to an integer and flags the row as invalid (1) when the conversion fails, and as valid (0) when it succeeds. The result replaces any previous version of the table on each run.",
+ "explanation": "This procedure rebuilds a diagnostic table from the customers table. For each customer it keeps the raw legacy code, attempts to convert that code to an integer, and flags whether the conversion failed. Rows where the code is not a valid integer get `invalid = 1` and a NULL numeric value.",
  "llm_calls": [
   {
    "model": "claude-haiku-5-5",
    "input_tokens": 1510,
-   "output_tokens": 1753,
+   "output_tokens": 1782,
    "cache_write_tokens": 0,
    "cache_read_tokens": 0,
-   "cost_usd": 0.001027
+   "cost_usd": 0.001042
+  },
+  {
+   "model": "claude-haiku-5-5",
+   "input_tokens": 2085,
+   "output_tokens": 2147,
+   "cache_write_tokens": 0,
+   "cache_read_tokens": 0,
+   "cost_usd": 0.001282
   }
  ],
- "cost_usd": 0.001027
+ "cost_usd": 0.002324
 }

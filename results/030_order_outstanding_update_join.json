@@ -8,31 +8,39 @@
  ],
  "status": "verified",
  "attempts": 1,
- "rows": 34,
- "model_sql": "WITH pay AS (\n    SELECT order_id,\n           SUM(paid_amount) AS total,\n           MAX(paid_date) AS last_dt\n    FROM {{ source('legacy', 'payments') }}\n    GROUP BY order_id\n),\nt AS (\n    SELECT o.order_id,\n           o.amount,\n           CASE WHEN p.order_id IS NULL THEN CAST(0 AS DECIMAL(18,2))\n                ELSE CAST(p.total AS DECIMAL(18,2)) END AS paid,\n           CASE WHEN p.order_id IS NULL THEN CAST(NULL AS DATE)\n                ELSE p.last_dt END AS last_paid\n    FROM {{ source('legacy', 'orders') }} o\n    LEFT JOIN pay p ON p.order_id = o.order_id\n)\nSELECT order_id,\n       amount,\n       paid,\n       amount - paid AS outstanding,\n       last_paid\nFROM t",
+ "rows": 117,
+ "datasets": {
+  "base": 34,
+  "seed_101": 34,
+  "seed_202": 34,
+  "edge": 15
+ },
+ "model_sql": "WITH pay AS (\n    SELECT\n        order_id,\n        SUM(paid_amount) AS total_paid,\n        MAX(paid_date) AS last_dt\n    FROM {{ source('legacy', 'payments') }}\n    GROUP BY order_id\n),\nbase AS (\n    SELECT\n        o.order_id,\n        o.amount,\n        CASE\n            WHEN p.order_id IS NOT NULL THEN CAST(p.total_paid AS DECIMAL(18,2))\n            ELSE CAST(0 AS DECIMAL(18,2))\n        END AS paid,\n        CAST(p.last_dt AS DATE) AS last_paid\n    FROM {{ source('legacy', 'orders') }} o\n    LEFT JOIN pay p\n        ON p.order_id = o.order_id\n)\nSELECT\n    order_id,\n    amount,\n    paid,\n    amount - paid AS outstanding,\n    last_paid\nFROM base",
  "history": [
   {
    "attempt": 1,
-   "sql": "WITH pay AS (\n    SELECT order_id,\n           SUM(paid_amount) AS total,\n           MAX(paid_date) AS last_dt\n    FROM {{ source('legacy', 'payments') }}\n    GROUP BY order_id\n),\nt AS (\n    SELECT o.order_id,\n           o.amount,\n           CASE WHEN p.order_id IS NULL THEN CAST(0 AS DECIMAL(18,2))\n                ELSE CAST(p.total AS DECIMAL(18,2)) END AS paid,\n           CASE WHEN p.order_id IS NULL THEN CAST(NULL AS DATE)\n                ELSE p.last_dt END AS last_paid\n    FROM {{ source('legacy', 'orders') }} o\n    LEFT JOIN pay p ON p.order_id = o.order_id\n)\nSELECT order_id,\n       amount,\n       paid,\n       amount - paid AS outstanding,\n       last_paid\nFROM t",
+   "sql": "WITH pay AS (\n    SELECT\n        order_id,\n        SUM(paid_amount) AS total_paid,\n        MAX(paid_date) AS last_dt\n    FROM {{ source('legacy', 'payments') }}\n    GROUP BY order_id\n),\nbase AS (\n    SELECT\n        o.order_id,\n        o.amount,\n        CASE\n            WHEN p.order_id IS NOT NULL THEN CAST(p.total_paid AS DECIMAL(18,2))\n            ELSE CAST(0 AS DECIMAL(18,2))\n        END AS paid,\n        CAST(p.last_dt AS DATE) AS last_paid\n    FROM {{ source('legacy', 'orders') }} o\n    LEFT JOIN pay p\n        ON p.order_id = o.order_id\n)\nSELECT\n    order_id,\n    amount,\n    paid,\n    amount - paid AS outstanding,\n    last_paid\nFROM base",
    "status": "match",
    "detail": {
-    "equivalent": true,
-    "legacy_rows": 34,
-    "new_rows": 34,
-    "issues": []
+    "datasets": {
+     "base": 34,
+     "seed_101": 34,
+     "seed_202": 34,
+     "edge": 15
+    }
    }
   }
  ],
- "explanation": "This procedure builds one row per order showing how much has been paid and what is still owed. Each order's payments are totaled, and the most recent payment date is recorded. Orders with no payments show zero paid and no last payment date. Outstanding is the order amount minus the amount paid.",
+ "explanation": "This procedure builds an outstanding-balance report with one row per order. Every order starts with zero paid and no last payment date, then each order that has payments is updated with the total paid and the most recent payment date. The output shows the order amount, the amount paid, the amount still outstanding (amount minus paid), and the last payment date. Orders with no payments show zero paid and a blank last payment date.",
  "llm_calls": [
   {
    "model": "claude-haiku-5-5",
    "input_tokens": 1634,
-   "output_tokens": 2026,
+   "output_tokens": 1750,
    "cache_write_tokens": 0,
    "cache_read_tokens": 0,
-   "cost_usd": 0.001176
+   "cost_usd": 0.001038
   }
  ],
- "cost_usd": 0.001176
+ "cost_usd": 0.001038
 }

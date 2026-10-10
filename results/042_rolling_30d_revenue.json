@@ -8,31 +8,39 @@
  ],
  "status": "verified",
  "attempts": 1,
- "rows": 27,
- "model_sql": "WITH d AS (\n    SELECT DISTINCT order_date\n    FROM {{ source('legacy', 'orders') }}\n),\nvalid AS (\n    SELECT order_date, amount\n    FROM {{ source('legacy', 'orders') }}\n    WHERE rtrim(lower(status)) NOT IN ('cancelled', 'returned')\n)\nSELECT\n    d.order_date,\n    SUM(v.amount) AS rolling_30d\nFROM d\nLEFT JOIN valid v\n    ON v.order_date > d.order_date - 30\n   AND v.order_date <= d.order_date\nGROUP BY d.order_date",
+ "rows": 101,
+ "datasets": {
+  "base": 27,
+  "seed_101": 28,
+  "seed_202": 32,
+  "edge": 14
+ },
+ "model_sql": "WITH d AS (\n    SELECT DISTINCT order_date\n    FROM {{ source('legacy', 'orders') }}\n)\nSELECT\n    d.order_date,\n    (\n        SELECT SUM(o2.amount)\n        FROM {{ source('legacy', 'orders') }} o2\n        WHERE o2.order_date > d.order_date - 30\n          AND o2.order_date <= d.order_date\n          AND RTRIM(LOWER(o2.status)) NOT IN ('cancelled', 'returned')\n    ) AS rolling_30d\nFROM d",
  "history": [
   {
    "attempt": 1,
-   "sql": "WITH d AS (\n    SELECT DISTINCT order_date\n    FROM {{ source('legacy', 'orders') }}\n),\nvalid AS (\n    SELECT order_date, amount\n    FROM {{ source('legacy', 'orders') }}\n    WHERE rtrim(lower(status)) NOT IN ('cancelled', 'returned')\n)\nSELECT\n    d.order_date,\n    SUM(v.amount) AS rolling_30d\nFROM d\nLEFT JOIN valid v\n    ON v.order_date > d.order_date - 30\n   AND v.order_date <= d.order_date\nGROUP BY d.order_date",
+   "sql": "WITH d AS (\n    SELECT DISTINCT order_date\n    FROM {{ source('legacy', 'orders') }}\n)\nSELECT\n    d.order_date,\n    (\n        SELECT SUM(o2.amount)\n        FROM {{ source('legacy', 'orders') }} o2\n        WHERE o2.order_date > d.order_date - 30\n          AND o2.order_date <= d.order_date\n          AND RTRIM(LOWER(o2.status)) NOT IN ('cancelled', 'returned')\n    ) AS rolling_30d\nFROM d",
    "status": "match",
    "detail": {
-    "equivalent": true,
-    "legacy_rows": 27,
-    "new_rows": 27,
-    "issues": []
+    "datasets": {
+     "base": 27,
+     "seed_101": 28,
+     "seed_202": 32,
+     "edge": 14
+    }
    }
   }
  ],
- "explanation": "For each distinct order date, this procedure totals the revenue from the previous 30 days, including that day. It leaves out orders marked \"cancelled\" or \"returned\", ignoring case and trailing spaces as SQL Server does. The result is one row per order date with that rolling 30-day total, saved to a table that is rebuilt on each run.",
+ "explanation": "This procedure builds a daily rolling 30-day revenue table. For each distinct order date, it sums the order amounts from the previous 30 days, including that day, and leaves out cancelled and returned orders. The result has one row per order date that appears in the orders table. The status check is case- and trailing-space-insensitive, matching SQL Server's default collation.",
  "llm_calls": [
   {
    "model": "claude-haiku-5-5",
    "input_tokens": 1547,
-   "output_tokens": 1482,
+   "output_tokens": 1378,
    "cache_write_tokens": 0,
    "cache_read_tokens": 0,
-   "cost_usd": 0.000896
+   "cost_usd": 0.000844
   }
  ],
- "cost_usd": 0.000896
+ "cost_usd": 0.000844
 }
